@@ -23,7 +23,7 @@
       "pulses_per_mm": 80000,
       "nominal_travel_mm": 250,
       "measured_usable_travel_mm": null,
-      "positive_direction_level": null,
+      "positive_direction_level": "HIGH_retracts_axis",
       "pickup_coordinate_mm": null,
       "slot_align_coordinates_mm": {
         "S01": null,
@@ -61,6 +61,13 @@
       "sense_resistor_ohms": 0.1,
       "initial_vref_v": 0.2,
       "initial_current_limit_a": 0.25,
+      "first_jog_observation": {
+        "commanded_pulses": 8000,
+        "configured_distance_mm": 5,
+        "observed_distance_mm_approx": 30,
+        "provisional_pulses_per_mm": 267,
+        "status": "invalid_until_microstep_pins_and_lead_are_measured"
+      },
       "scale_source": "user_confirmed_specs_not_measured"
     }
   },

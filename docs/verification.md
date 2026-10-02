@@ -23,6 +23,9 @@
 - COM12 预检通过后发送 `ARM E CLEAR` 和 `JOG E 5.0`。
 - 板端返回 `START E pulses=8000 DIR=HIGH`，随后返回 `STOP reason=PULSE_SEQUENCE_DONE_NOT_POSITION_FEEDBACK emitted_pulses=8000`，最终 `moving=-`。
 - 以上只证明 8000 个脉冲已发送并自动停机；实际方向、位移、抖动和堵转仍待操作者观察确认。
+- 操作者观察：DIR=HIGH 时 E 轴向回缩方向平稳运动，实际距离约 30 mm，而配置距离为 5 mm。
+- 由单次粗测得到约 267 pulse/mm，与 1600 pulse/mm 配置不符；在测量 MS1/MS2/MS3 电压和丝杆每圈实际位移前，不修改正式比例。
+- 随后发送完全相同的 8000 脉冲、DIR=LOW 反向运动命令，板端正常完成；实际是否回到原位置待操作者确认。
 
 以下为上一版本记录：
 
