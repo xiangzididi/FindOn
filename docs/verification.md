@@ -34,6 +34,8 @@
 - 新固件已编译并烧录至 COM12，写入校验通过。只读 `STATUS` 返回 `armed=-`、`moving=-`、`Escale=UNCALIBRATED`、`EmaxRawPulse=320`；机械检查和人工置中完成前不再发运动命令。
 - 置中后 320 脉冲回缩约 5 mm，反向 320 脉冲伸出约 4.5 mm并基本回到中间，两次运动均平稳、无异响或卡顿。粗测分别为约 64 与 71 pulse/mm，尚未作为正式比例。
 - 因 1000 pulse/s 的 640 脉冲复测时间太短，不便现场测量，固件标定速率进一步降至 100 pulse/s，版本更新为 `GEWU-AXIS-TEST-2.3-E-SLOW-CALIBRATION`。
+- 后续出现板端已发送脉冲但 E 电机间歇性完全无反应；实物检查确认原因是电机线掉焊。此前掉焊期间的位移数据全部视为无效。
+- 电机线重新焊接后，`GEWU-AXIS-TEST-2.3-E-SLOW-CALIBRATION` 已重新编译并烧录至 COM12，写入校验通过；只读状态确认 `armed=-`、`moving=-`、`Erate=100pulse/s`、`EmaxRawPulse=320`，尚未执行焊后正式标定。
 
 以下为上一版本记录：
 
