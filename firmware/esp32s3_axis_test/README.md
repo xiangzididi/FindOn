@@ -4,7 +4,7 @@
 
 ## 接线和计算
 
-- X：GPIO17 → PD42S1 STP，GPIO18 → DIR。按已有共阳示例，STEP 空闲为高、低脉冲有效。
+- X：GPIO17 → PD42S1 STP，GPIO18 → DIR。按已有共阳示例，STEP 空闲为高、低脉冲有效；GPIO17/STP 外接 10 kΩ 上拉到 3.3 V。
 - E：GPIO15 → A4988 STEP，GPIO16 → DIR，GPIO7 → EN。STEP 高脉冲有效，EN 低有效。
 - GPIO4、GPIO5 当前不连接。
 - ESP32、PD42S1 信号端和 A4988 必须共地；电机电源与 USB 供电分开。

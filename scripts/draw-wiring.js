@@ -9,9 +9,9 @@ const dot=(x,y)=>s.push(`<circle cx="${x}" cy="${y}" r="4" fill="${c.line}"/>`);
 const wire=(x1,y1,x2,y2,label='',color=c.blue)=>{path(`M${x1} ${y1}H${x2}V${y2}`,color);if(label)text((x1+x2)/2-35,y1-9,label,16,color);};
 const ground=(x,y)=>{path(`M${x} ${y}v12m-14 0h28m-23 6h18m-13 6h8`);};
 const resistor=(x,y)=>{path(`M${x} ${y}v10`);s.push(`<rect x="${x-5}" y="${y+10}" width="10" height="24" fill="white" stroke="${c.line}" stroke-width="2"/>`);path(`M${x} ${y+34}v10`);};
-s.push(`<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="1330" viewBox="0 0 1700 1330"><title>格物双轴零件柜接线图 R2</title><desc>ESP32-S3-N16R8 使用脉冲方向控制 PD42S1 与 A4988，当前没有原点或限位开关，共地供电。候选接线，尚未实物验证。</desc><rect width="1700" height="1330" fill="${c.bg}"/><g font-family="Microsoft YaHei, Noto Sans CJK SC, sans-serif">`);
+s.push(`<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="1330" viewBox="0 0 1700 1330"><title>格物双轴零件柜接线图 R3</title><desc>ESP32-S3-N16R8 使用脉冲方向控制带 1:50 减速箱的 PD42S1 与 A4988，当前没有原点或限位开关，共地供电。</desc><rect width="1700" height="1330" fill="${c.bg}"/><g font-family="Microsoft YaHei, Noto Sans CJK SC, sans-serif">`);
 text(45,53,'格物 / 单层两格 · 双轴电气接线图',32,c.ink,600);
-text(45,88,'R2 · 2026-10-02    GPIO 为候选分配；按端子名称接线，图中排列不代表模块实物针脚顺序。',19,c.muted);
+text(45,88,'R3 · 最新确认版    GPIO 按当前测试固件；按端子名称接线，图中排列不代表模块实物针脚顺序。',19,c.muted);
 text(45,118,'同名网络（+3V3 / GND / +VM）相连；实心圆为连接点，交叉无圆点不相连。两轴均为 STEP/DIR。',18,c.muted);
 
 box(40,145,790,340,'01  X 轴：PD42S1 + 丝杆 / 导轨');
@@ -19,20 +19,21 @@ box(65,205,210,210,'ESP32-S3'); box(560,205,240,210,'PD42S1');
 for(const [i,l,r] of [[0,'GPIO17','STP'],[1,'GPIO18','DIR'],[2,'3V3','COM'],[3,'GND','GND']]) {
  const y=265+i*39;text(85,y+6,l);text(580,y+6,r);wire(275,y,560,y,'',i===2?c.red:i===3?c.line:c.blue);
 }
-text(65,447,'LCD：脉冲模式；EN 保持有效、EN 端不接（沿用用户示例）。',18);
-text(65,473,'16 细分；电机 → 1:50 减速箱 → 2 mm 导程丝杆。电机供电见 04。',17,c.muted);
+text(420,199,'+3V3',16,c.red);path('M450 205V211',c.red);resistor(450,211);path('M450 255V265',c.red);dot(450,265);text(463,235,'10 kΩ',15);
+text(65,447,'脉冲模式；GPIO17 / STP 用 10 kΩ 上拉保持空闲 HIGH；EN 端不接。',18);
+text(65,473,'16 细分；电机 → 1:50 减速箱 → 2 mm 导程丝杆；X = 80000 pulse/mm。',17,c.muted);
 
 box(860,145,800,580,'02  E 轴：A4988 + 约 50 mm 丝杆模组');
 box(885,235,200,200,'ESP32-S3');box(1290,225,225,450,'A4988');
 for(const [y,l,r] of [[295,'GPIO15','STEP'],[340,'GPIO16','DIR'],[400,'GPIO7','EN（低有效）']]) {text(905,y+6,l);text(1310,y+6,r,18);wire(1085,y,1290,y);}
 text(1150,222,'+3V3',17,c.red);path('M1180 232V240',c.red);resistor(1180,240);path('M1180 284V400');dot(1180,400);text(1192,272,'10 kΩ',16);
-text(886,480,'STEP、DIR 各接 10 kΩ 下拉到 GND。',17,c.muted);
-text(886,508,'EN 上拉：控制器启动时默认禁用。',17,c.muted);
+text(886,480,'STEP、DIR 由固件先置稳定电平，再拉低 EN。',17,c.muted);
+text(886,508,'EN 用 10 kΩ 上拉：控制器启动时默认禁用。',17,c.muted);
 text(886,550,'+3V3',18,c.red);wire(960,544,1290,544,'VDD',c.red);text(1310,550,'VDD');
 path('M1220 544V600H1290',c.red);dot(1220,544);text(1310,588,'RST');text(1310,615,'SLP');path('M1270 582H1290M1270 582V609H1290',c.red);dot(1270,600);
 text(886,584,'RST、SLP 短接后接 +3V3。',17,c.muted);
 text(886,620,'MS1 / MS2 / MS3 → +3V3',17,c.red);
-text(886,650,'建议 1/16 细分；固件参数须一致。',17,c.muted);
+text(886,650,'1/16 细分；2 mm 导程；E = 1600 pulse/mm。',17,c.muted);
 text(1310,652,'MS1 / MS2 / MS3',16);
 text(1185,682,'+3V3',16,c.red);path('M1220 669V646H1290',c.red);
 for(const [y,p,n] of [[280,'1A','A'],[318,'1B','A'],[360,'2A','B'],[398,'2B','B']]) {text(1445,y+6,p,16);path(`M1515 ${y}H1580`,c.green);text(1610,y+6,n,17,c.green);}

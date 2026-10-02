@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="1330" viewBox="0 0 1700 1330"><title>格物双轴零件柜接线图 R2</title><desc>ESP32-S3-N16R8 使用脉冲方向控制 PD42S1 与 A4988，当前没有原点或限位开关，共地供电。候选接线，尚未实物验证。</desc><rect width="1700" height="1330" fill="#f5f7fa"/><g font-family="Microsoft YaHei, Noto Sans CJK SC, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="1330" viewBox="0 0 1700 1330"><title>格物双轴零件柜接线图 R3</title><desc>ESP32-S3-N16R8 使用脉冲方向控制带 1:50 减速箱的 PD42S1 与 A4988，当前没有原点或限位开关，共地供电。</desc><rect width="1700" height="1330" fill="#f5f7fa"/><g font-family="Microsoft YaHei, Noto Sans CJK SC, sans-serif">
 <text x="45" y="53" font-size="32" fill="#203448" font-weight="600">格物 / 单层两格 · 双轴电气接线图</text>
-<text x="45" y="88" font-size="19" fill="#586a7a" font-weight="400">R2 · 2026-10-02    GPIO 为候选分配；按端子名称接线，图中排列不代表模块实物针脚顺序。</text>
+<text x="45" y="88" font-size="19" fill="#586a7a" font-weight="400">R3 · 最新确认版    GPIO 按当前测试固件；按端子名称接线，图中排列不代表模块实物针脚顺序。</text>
 <text x="45" y="118" font-size="18" fill="#586a7a" font-weight="400">同名网络（+3V3 / GND / +VM）相连；实心圆为连接点，交叉无圆点不相连。两轴均为 STEP/DIR。</text>
 <rect x="40" y="145" width="790" height="340" rx="8" fill="white" stroke="#bccad5"/>
 <text x="60" y="178" font-size="22" fill="#203448" font-weight="600">01  X 轴：PD42S1 + 丝杆 / 导轨</text>
@@ -20,8 +20,16 @@
 <text x="85" y="388" font-size="19" fill="#203448" font-weight="400">GND</text>
 <text x="580" y="388" font-size="19" fill="#203448" font-weight="400">GND</text>
 <path d="M275 382H560V382" fill="none" stroke="#344e65" stroke-width="2"/>
-<text x="65" y="447" font-size="18" fill="#203448" font-weight="400">LCD：脉冲模式；EN 保持有效、EN 端不接（沿用用户示例）。</text>
-<text x="65" y="473" font-size="17" fill="#586a7a" font-weight="400">16 细分；电机 → 1:50 减速箱 → 2 mm 导程丝杆。电机供电见 04。</text>
+<text x="420" y="199" font-size="16" fill="#b43b35" font-weight="400">+3V3</text>
+<path d="M450 205V211" fill="none" stroke="#b43b35" stroke-width="2"/>
+<path d="M450 211v10" fill="none" stroke="#344e65" stroke-width="2"/>
+<rect x="445" y="221" width="10" height="24" fill="white" stroke="#344e65" stroke-width="2"/>
+<path d="M450 245v10" fill="none" stroke="#344e65" stroke-width="2"/>
+<path d="M450 255V265" fill="none" stroke="#b43b35" stroke-width="2"/>
+<circle cx="450" cy="265" r="4" fill="#344e65"/>
+<text x="463" y="235" font-size="15" fill="#203448" font-weight="400">10 kΩ</text>
+<text x="65" y="447" font-size="18" fill="#203448" font-weight="400">脉冲模式；GPIO17 / STP 用 10 kΩ 上拉保持空闲 HIGH；EN 端不接。</text>
+<text x="65" y="473" font-size="17" fill="#586a7a" font-weight="400">16 细分；电机 → 1:50 减速箱 → 2 mm 导程丝杆；X = 80000 pulse/mm。</text>
 <rect x="860" y="145" width="800" height="580" rx="8" fill="white" stroke="#bccad5"/>
 <text x="880" y="178" font-size="22" fill="#203448" font-weight="600">02  E 轴：A4988 + 约 50 mm 丝杆模组</text>
 <rect x="885" y="235" width="200" height="200" rx="8" fill="white" stroke="#bccad5"/>
@@ -45,8 +53,8 @@
 <path d="M1180 284V400" fill="none" stroke="#344e65" stroke-width="2"/>
 <circle cx="1180" cy="400" r="4" fill="#344e65"/>
 <text x="1192" y="272" font-size="16" fill="#203448" font-weight="400">10 kΩ</text>
-<text x="886" y="480" font-size="17" fill="#586a7a" font-weight="400">STEP、DIR 各接 10 kΩ 下拉到 GND。</text>
-<text x="886" y="508" font-size="17" fill="#586a7a" font-weight="400">EN 上拉：控制器启动时默认禁用。</text>
+<text x="886" y="480" font-size="17" fill="#586a7a" font-weight="400">STEP、DIR 由固件先置稳定电平，再拉低 EN。</text>
+<text x="886" y="508" font-size="17" fill="#586a7a" font-weight="400">EN 用 10 kΩ 上拉：控制器启动时默认禁用。</text>
 <text x="886" y="550" font-size="18" fill="#b43b35" font-weight="400">+3V3</text>
 <path d="M960 544H1290V544" fill="none" stroke="#b43b35" stroke-width="2"/>
 <text x="1090" y="535" font-size="16" fill="#b43b35" font-weight="400">VDD</text>
@@ -59,7 +67,7 @@
 <circle cx="1270" cy="600" r="4" fill="#344e65"/>
 <text x="886" y="584" font-size="17" fill="#586a7a" font-weight="400">RST、SLP 短接后接 +3V3。</text>
 <text x="886" y="620" font-size="17" fill="#b43b35" font-weight="400">MS1 / MS2 / MS3 → +3V3</text>
-<text x="886" y="650" font-size="17" fill="#586a7a" font-weight="400">建议 1/16 细分；固件参数须一致。</text>
+<text x="886" y="650" font-size="17" fill="#586a7a" font-weight="400">1/16 细分；2 mm 导程；E = 1600 pulse/mm。</text>
 <text x="1310" y="652" font-size="16" fill="#203448" font-weight="400">MS1 / MS2 / MS3</text>
 <text x="1185" y="682" font-size="16" fill="#b43b35" font-weight="400">+3V3</text>
 <path d="M1220 669V646H1290" fill="none" stroke="#b43b35" stroke-width="2"/>
