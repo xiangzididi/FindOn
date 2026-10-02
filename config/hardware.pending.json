@@ -16,6 +16,18 @@
       "step_signal_idle_level": "HIGH",
       "full_steps_per_motor_revolution": 200,
       "microsteps": 16,
+      "microstep_pin_target": {
+        "MS1_v": 3.3,
+        "MS2_v": 3.3,
+        "MS3_v": 3.3
+      },
+      "microstep_pin_observed_before_rewire": {
+        "MS1_v": 0,
+        "MS2_v": 0,
+        "MS3_v": 0,
+        "actual_mode": "full_step",
+        "actual_pulses_per_mm_if_lead_is_2mm": 100
+      },
       "gearbox_ratio_motor_to_output": 50,
       "lead_mm_per_output_revolution": 2,
       "pulses_per_motor_revolution": 3200,
@@ -66,7 +78,7 @@
         "configured_distance_mm": 5,
         "observed_distance_mm_approx": 30,
         "provisional_pulses_per_mm": 267,
-        "status": "invalid_until_microstep_pins_and_lead_are_measured"
+        "status": "explained_by_MS1_MS2_MS3_all_0V_full_step_axis_likely_reached_hard_end"
       },
       "scale_source": "user_confirmed_specs_not_measured"
     }
