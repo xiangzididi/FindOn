@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="1330" viewBox="0 0 1700 1330"><title>格物双轴零件柜接线图 R4</title><desc>ESP32-S3-N16R8 使用脉冲方向控制带 1:50 减速箱的 PD42S1 与 R100 采样电阻 A4988，当前没有原点或限位开关，共地供电。</desc><rect width="1700" height="1330" fill="#f5f7fa"/><g font-family="Microsoft YaHei, Noto Sans CJK SC, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="1330" viewBox="0 0 1700 1330"><title>格物双轴零件柜接线图 R5</title><desc>ESP32-S3-N16R8 使用脉冲方向控制带 1:50 减速箱的 PD42S1 与 R100 采样电阻 A4988，当前没有原点或限位开关，共地供电。</desc><rect width="1700" height="1330" fill="#f5f7fa"/><g font-family="Microsoft YaHei, Noto Sans CJK SC, sans-serif">
 <text x="45" y="53" font-size="32" fill="#203448" font-weight="600">格物 / 单层两格 · 双轴电气接线图</text>
-<text x="45" y="88" font-size="19" fill="#586a7a" font-weight="400">R4 · 实物照片更新    GPIO 按当前测试固件；按端子名称接线，图中排列不代表模块实物针脚顺序。</text>
+<text x="45" y="88" font-size="19" fill="#586a7a" font-weight="400">R5 · 光驱电机修订    GPIO 按当前测试固件；按端子名称接线，图中排列不代表模块实物针脚顺序。</text>
 <text x="45" y="118" font-size="18" fill="#586a7a" font-weight="400">同名网络（+3V3 / GND / +VM）相连；实心圆为连接点，交叉无圆点不相连。两轴均为 STEP/DIR。</text>
 <rect x="40" y="145" width="790" height="340" rx="8" fill="white" stroke="#bccad5"/>
 <text x="60" y="178" font-size="22" fill="#203448" font-weight="600">01  X 轴：PD42S1 + 丝杆 / 导轨</text>
@@ -67,7 +67,7 @@
 <circle cx="1270" cy="600" r="4" fill="#344e65"/>
 <text x="886" y="584" font-size="17" fill="#586a7a" font-weight="400">RST、SLP 短接后接 +3V3。</text>
 <text x="886" y="620" font-size="17" fill="#b43b35" font-weight="400">MS1 / MS2 / MS3 → +3V3</text>
-<text x="886" y="650" font-size="17" fill="#586a7a" font-weight="400">1/16 细分；2 mm 导程；E = 1600 pulse/mm。</text>
+<text x="886" y="650" font-size="17" fill="#586a7a" font-weight="400">光驱电机 + T4 丝杆；E 比例待标定。</text>
 <text x="1310" y="652" font-size="16" fill="#203448" font-weight="400">MS1 / MS2 / MS3</text>
 <text x="1185" y="682" font-size="16" fill="#b43b35" font-weight="400">+3V3</text>
 <path d="M1220 669V646H1290" fill="none" stroke="#b43b35" stroke-width="2"/>

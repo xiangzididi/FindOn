@@ -16,18 +16,6 @@
       "step_signal_idle_level": "HIGH",
       "full_steps_per_motor_revolution": 200,
       "microsteps": 16,
-      "microstep_pin_target": {
-        "MS1_v": 3.3,
-        "MS2_v": 3.3,
-        "MS3_v": 3.3
-      },
-      "microstep_pin_observed_before_rewire": {
-        "MS1_v": 0,
-        "MS2_v": 0,
-        "MS3_v": 0,
-        "actual_mode": "full_step",
-        "actual_pulses_per_mm_if_lead_is_2mm": 100
-      },
       "gearbox_ratio_motor_to_output": 50,
       "lead_mm_per_output_revolution": 2,
       "pulses_per_motor_revolution": 3200,
@@ -35,7 +23,7 @@
       "pulses_per_mm": 80000,
       "nominal_travel_mm": 250,
       "measured_usable_travel_mm": null,
-      "positive_direction_level": "HIGH_retracts_axis",
+      "positive_direction_level": null,
       "pickup_coordinate_mm": null,
       "slot_align_coordinates_mm": {
         "S01": null,
@@ -48,25 +36,37 @@
     },
     "E": {
       "driver": "A4988 STEP/DIR",
-      "transmission": "direct_2mm_leadscrew_linear_rail",
+      "transmission": "optical_drive_motor_direct_T4_leadscrew_linear_rail",
       "step_gpio_proposed": 15,
       "dir_gpio_proposed": 16,
       "enable_gpio_proposed": 7,
       "home_gpio": null,
       "step_signal_active_level": "HIGH",
       "step_signal_idle_level": "LOW",
-      "full_steps_per_motor_revolution": 200,
+      "motor_origin": "salvaged_from_Samsung_optical_drive",
+      "step_angle_degrees": null,
+      "full_steps_per_motor_revolution": null,
       "microsteps": 16,
+      "microstep_pin_target": {
+        "MS1_v": 3.3,
+        "MS2_v": 3.3,
+        "MS3_v": 3.3
+      },
+      "microstep_pin_observed": {
+        "before_rewire_v": [0, 0, 0],
+        "after_rewire_v": [3.3, 3.3, 3.3]
+      },
       "gearbox_ratio_motor_to_output": 1,
-      "lead_mm_per_output_revolution": 2,
-      "pulses_per_motor_revolution": 3200,
-      "pulses_per_output_revolution": 3200,
-      "pulses_per_mm": 1600,
+      "leadscrew_marking": "T4",
+      "lead_mm_per_output_revolution": null,
+      "pulses_per_motor_revolution": null,
+      "pulses_per_output_revolution": null,
+      "pulses_per_mm": null,
       "nominal_travel_mm": 50,
       "measured_usable_travel_mm": null,
-      "positive_direction_level": null,
+      "positive_direction_level": "HIGH_retracts_axis",
       "manual_reference": "fully_retracted_clear_position_mark",
-      "jog_pulse_rate_hz": 2000,
+      "jog_pulse_rate_hz": 1000,
       "motor_rated_current_a": null,
       "motor_supply_voltage_v": 12,
       "sense_resistor_marking": "R100",
@@ -80,7 +80,13 @@
         "provisional_pulses_per_mm": 267,
         "status": "explained_by_MS1_MS2_MS3_all_0V_full_step_axis_likely_reached_hard_end"
       },
-      "scale_source": "user_confirmed_specs_not_measured"
+      "sixteenth_step_observation": {
+        "commanded_pulses_per_trial": 8000,
+        "result": "travel_exceeded_T4_axis_range_and_reached_mechanical_end",
+        "interpretation": "motor_step_angle_and_screw_lead_are_not_the_assumed_1.8deg_and_2mm"
+      },
+      "calibration_mode": "raw_pulses_max_320_per_arm",
+      "scale_source": "unknown_requires_measurement"
     }
   },
   "limits": {

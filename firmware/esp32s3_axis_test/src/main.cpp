@@ -5,18 +5,17 @@
 #include <stdio.h>
 #include <string.h>
 
-constexpr char VERSION[] = "GEWU-AXIS-TEST-2.1-NO-ENDSTOPS";
+constexpr char VERSION[] = "GEWU-AXIS-TEST-2.2-E-CALIBRATION";
 constexpr int X_STEP = 17, X_DIR = 18, E_STEP = 15, E_DIR = 16, E_EN = 7;
 
-// Both motors: 1.8 degrees, 16 microsteps, 2 mm leadscrew lead.
-// X also has a 50:1 gearbox: 200 * 16 * 50 / 2 = 80000 pulses/mm.
+// X: 1.8 degrees, 16 microsteps, 50:1 gearbox, 2 mm leadscrew lead.
+// E uses an optical-drive motor and a T4 screw; its scale is not calibrated.
 constexpr uint32_t X_PULSES_PER_MM = 80000;
-constexpr uint32_t E_PULSES_PER_MM = 1600;
 
 // PD42S1 example wiring uses common-anode STEP: idle HIGH, active LOW.
 // A4988 STEP uses the usual idle LOW, active HIGH.
 constexpr uint32_t X_PERIOD_US = 50;   // 20000 pulse/s = 0.25 mm/s
-constexpr uint32_t E_PERIOD_US = 500;  // 2000 pulse/s = 1.25 mm/s
+constexpr uint32_t E_PERIOD_US = 1000;  // 1000 pulse/s, raw-pulse calibration only
 constexpr uint32_t ACTIVE_US = 20;
 constexpr uint32_t ARM_MS = 10000, MOVE_TIMEOUT_MS = 8000;
 
@@ -47,15 +46,15 @@ void stopMotion(const char *reason) {
 void status() {
   Serial.printf(
       "%s mode=BENCH armed=%c moving=%c endstops=NONE homing=UNAVAILABLE "
-      "Xmicrostep=16 Xgear=50:1 Xscale=80000pulse/mm Escale=1600pulse/mm "
-      "XmaxJog=1mm EmaxJog=5mm position=UNREFERENCED\n",
+      "Xmicrostep=16 Xgear=50:1 Xscale=80000pulse/mm "
+      "Escale=UNCALIBRATED EmaxRawPulse=320 position=UNREFERENCED\n",
       VERSION, armed ? armed : '-', moving ? moving : '-');
 }
 
 void help() {
-  Serial.println("STATUS | ARM X CLEAR | ARM E CLEAR | JOG X 0.5 | JOG E -0.5 | STOP | !");
+  Serial.println("STATUS | ARM X CLEAR | JOG X 0.5 | ARM E CLEAR | PULSE E 320 | STOP | !");
   Serial.println("ARM confirms current limit, clear path and distance to both hard ends.");
-  Serial.println("One jog per ARM; ARM expires in 10s. X range: +/-0.1..1.0 mm; E range: +/-0.1..5.0 mm.");
+  Serial.println("One move per ARM; ARM expires in 10s. X: +/-0.1..1.0 mm. E: +/-16..320 raw pulses.");
   Serial.println("+ means DIR HIGH; physical direction and displacement are UNVERIFIED.");
   Serial.println("No endstops, HOME, continuous SPIN or automatic FETCH. Position is unreferenced.");
   Serial.println("Motor power off before wiring or manual repositioning. X EN is not controlled.");
@@ -90,29 +89,64 @@ void command(char *input) {
     return;
   }
 
+  long signedPulses = 0;
+  if (sscanf(input, "PULSE %c %ld %c", &axis, &signedPulses, &extra) == 2 &&
+      axis == 'E') {
+    const bool permitted = armed == 'E' && uint32_t(millis() - armedAt) < ARM_MS;
+    armed = 0;
+    if (!permitted) {
+      Serial.println("REJECT ARM_REQUIRED");
+      return;
+    }
+    if ((signedPulses > -16 && signedPulses < 16) ||
+        signedPulses < -320 || signedPulses > 320) {
+      Serial.println("REJECT E_RAW_RANGE_16_TO_320_PULSES");
+      return;
+    }
+
+    stepPin = E_STEP;
+    periodUs = E_PERIOD_US;
+    digitalWrite(E_DIR, signedPulses > 0 ? HIGH : LOW);
+    digitalWrite(E_STEP, LOW);
+    remaining = static_cast<uint32_t>(signedPulses > 0 ? signedPulses : -signedPulses);
+    emitted = 0;
+    pulseActive = false;
+    digitalWrite(E_EN, LOW);
+    moving = 'E';
+    startedAt = millis();
+    edgeAt = micros();
+    Serial.printf("START E raw_pulses=%lu DIR=%s SCALE=UNCALIBRATED\n",
+                  static_cast<unsigned long>(remaining),
+                  signedPulses > 0 ? "HIGH" : "LOW");
+    return;
+  }
+
   if (sscanf(input, "JOG %c %f %c", &axis, &mm, &extra) == 2 &&
       (axis == 'X' || axis == 'E')) {
+    if (axis == 'E') {
+      armed = 0;
+      Serial.println("REJECT E_SCALE_UNCALIBRATED_USE_PULSE");
+      return;
+    }
     const bool permitted = armed == axis && uint32_t(millis() - armedAt) < ARM_MS;
     armed = 0;
     if (!permitted) {
       Serial.println("REJECT ARM_REQUIRED");
       return;
     }
-    const float maxJogMm = axis == 'X' ? 1.0f : 5.0f;
-    if (!isfinite(mm) || fabsf(mm) < 0.1f || fabsf(mm) > maxJogMm) {
-      Serial.printf("REJECT %c_RANGE_0.1_TO_%.1F_MM\n", axis, maxJogMm);
+    if (!isfinite(mm) || fabsf(mm) < 0.1f || fabsf(mm) > 1.0f) {
+      Serial.println("REJECT X_RANGE_0.1_TO_1.0_MM");
       return;
     }
 
-    const uint32_t scale = axis == 'X' ? X_PULSES_PER_MM : E_PULSES_PER_MM;
-    stepPin = axis == 'X' ? X_STEP : E_STEP;
-    periodUs = axis == 'X' ? X_PERIOD_US : E_PERIOD_US;
-    digitalWrite(axis == 'X' ? X_DIR : E_DIR, mm > 0 ? HIGH : LOW);
+    const uint32_t scale = X_PULSES_PER_MM;
+    stepPin = X_STEP;
+    periodUs = X_PERIOD_US;
+    digitalWrite(X_DIR, mm > 0 ? HIGH : LOW);
     digitalWrite(stepPin, stepIdleLevel(axis));
     remaining = lroundf(fabsf(mm) * scale);
     emitted = 0;
     pulseActive = false;
-    if (axis == 'E') digitalWrite(E_EN, LOW);
     moving = axis;
     startedAt = millis();
     edgeAt = micros();
