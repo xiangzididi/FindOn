@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 
-constexpr char VERSION[] = "GEWU-AXIS-TEST-2.2-E-CALIBRATION";
+constexpr char VERSION[] = "GEWU-AXIS-TEST-2.3-E-SLOW-CALIBRATION";
 constexpr int X_STEP = 17, X_DIR = 18, E_STEP = 15, E_DIR = 16, E_EN = 7;
 
 // X: 1.8 degrees, 16 microsteps, 50:1 gearbox, 2 mm leadscrew lead.
@@ -15,7 +15,7 @@ constexpr uint32_t X_PULSES_PER_MM = 80000;
 // PD42S1 example wiring uses common-anode STEP: idle HIGH, active LOW.
 // A4988 STEP uses the usual idle LOW, active HIGH.
 constexpr uint32_t X_PERIOD_US = 50;   // 20000 pulse/s = 0.25 mm/s
-constexpr uint32_t E_PERIOD_US = 1000;  // 1000 pulse/s, raw-pulse calibration only
+constexpr uint32_t E_PERIOD_US = 10000;  // 100 pulse/s, observable raw-pulse calibration
 constexpr uint32_t ACTIVE_US = 20;
 constexpr uint32_t ARM_MS = 10000, MOVE_TIMEOUT_MS = 8000;
 
@@ -47,14 +47,14 @@ void status() {
   Serial.printf(
       "%s mode=BENCH armed=%c moving=%c endstops=NONE homing=UNAVAILABLE "
       "Xmicrostep=16 Xgear=50:1 Xscale=80000pulse/mm "
-      "Escale=UNCALIBRATED EmaxRawPulse=320 position=UNREFERENCED\n",
+      "Escale=UNCALIBRATED Erate=100pulse/s EmaxRawPulse=320 position=UNREFERENCED\n",
       VERSION, armed ? armed : '-', moving ? moving : '-');
 }
 
 void help() {
   Serial.println("STATUS | ARM X CLEAR | JOG X 0.5 | ARM E CLEAR | PULSE E 320 | STOP | !");
   Serial.println("ARM confirms current limit, clear path and distance to both hard ends.");
-  Serial.println("One move per ARM; ARM expires in 10s. X: +/-0.1..1.0 mm. E: +/-16..320 raw pulses.");
+  Serial.println("One move per ARM; ARM expires in 10s. X: +/-0.1..1.0 mm. E: +/-16..320 raw pulses at 100 pulse/s.");
   Serial.println("+ means DIR HIGH; physical direction and displacement are UNVERIFIED.");
   Serial.println("No endstops, HOME, continuous SPIN or automatic FETCH. Position is unreferenced.");
   Serial.println("Motor power off before wiring or manual repositioning. X EN is not controlled.");
