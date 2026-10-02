@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 
-constexpr char VERSION[] = "GEWU-AXIS-TEST-2.0-NO-ENDSTOPS";
+constexpr char VERSION[] = "GEWU-AXIS-TEST-2.1-NO-ENDSTOPS";
 constexpr int X_STEP = 17, X_DIR = 18, E_STEP = 15, E_DIR = 16, E_EN = 7;
 
 // Both motors: 1.8 degrees, 16 microsteps, 2 mm leadscrew lead.
@@ -48,14 +48,14 @@ void status() {
   Serial.printf(
       "%s mode=BENCH armed=%c moving=%c endstops=NONE homing=UNAVAILABLE "
       "Xmicrostep=16 Xgear=50:1 Xscale=80000pulse/mm Escale=1600pulse/mm "
-      "position=UNREFERENCED\n",
+      "XmaxJog=1mm EmaxJog=5mm position=UNREFERENCED\n",
       VERSION, armed ? armed : '-', moving ? moving : '-');
 }
 
 void help() {
   Serial.println("STATUS | ARM X CLEAR | ARM E CLEAR | JOG X 0.5 | JOG E -0.5 | STOP | !");
   Serial.println("ARM confirms current limit, clear path and distance to both hard ends.");
-  Serial.println("One jog per ARM; ARM expires in 10s. JOG range: +/-0.1..1.0 mm.");
+  Serial.println("One jog per ARM; ARM expires in 10s. X range: +/-0.1..1.0 mm; E range: +/-0.1..5.0 mm.");
   Serial.println("+ means DIR HIGH; physical direction and displacement are UNVERIFIED.");
   Serial.println("No endstops, HOME, continuous SPIN or automatic FETCH. Position is unreferenced.");
   Serial.println("Motor power off before wiring or manual repositioning. X EN is not controlled.");
@@ -98,8 +98,9 @@ void command(char *input) {
       Serial.println("REJECT ARM_REQUIRED");
       return;
     }
-    if (!isfinite(mm) || fabsf(mm) < 0.1f || fabsf(mm) > 1.0f) {
-      Serial.println("REJECT RANGE_0.1_TO_1_MM");
+    const float maxJogMm = axis == 'X' ? 1.0f : 5.0f;
+    if (!isfinite(mm) || fabsf(mm) < 0.1f || fabsf(mm) > maxJogMm) {
+      Serial.printf("REJECT %c_RANGE_0.1_TO_%.1F_MM\n", axis, maxJogMm);
       return;
     }
 
@@ -130,11 +131,6 @@ void tickMotion() {
     stopMotion("TIMEOUT");
     return;
   }
-  if (!Serial) {
-    stopMotion("USB_DISCONNECTED");
-    return;
-  }
-
   const uint32_t current = micros();
   if (pulseActive) {
     if (uint32_t(current - edgeAt) >= ACTIVE_US) {

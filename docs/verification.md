@@ -17,6 +17,13 @@
 - 烧录复位后通过 COM12 / 115200 读取 `STATUS` 成功：`endstops=NONE`、`homing=UNAVAILABLE`、`Xgear=50:1`、`Xscale=80000pulse/mm`、`Escale=1600pulse/mm`、`position=UNREFERENCED`。
 - 验证只发送了 `STATUS`，未发送 ARM/JOG，电机未被命令运动。
 
+## 2026-10-02 E 轴 5 mm 点动
+
+- 固件更新为 `GEWU-AXIS-TEST-2.1-NO-ENDSTOPS`：X 单次最大 1 mm，E 单次最大 5 mm。
+- COM12 预检通过后发送 `ARM E CLEAR` 和 `JOG E 5.0`。
+- 板端返回 `START E pulses=8000 DIR=HIGH`，随后返回 `STOP reason=PULSE_SEQUENCE_DONE_NOT_POSITION_FEEDBACK emitted_pulses=8000`，最终 `moving=-`。
+- 以上只证明 8000 个脉冲已发送并自动停机；实际方向、位移、抖动和堵转仍待操作者观察确认。
+
 以下为上一版本记录：
 
 # 验证记录
