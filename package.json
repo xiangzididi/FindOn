@@ -1,0 +1,12 @@
+{
+  "name": "desktop-parts-cabinet",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.0.0" },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test",
+    "check": "node --check server.js && node --check lib/cabinet.js && node --check lib/device.js && node --check public/app.js"
+  }
+}

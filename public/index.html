@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>格物 · 智能零件柜</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+  <div class="shell">
+    <header><a class="brand" href="/" aria-label="格物首页"><span class="mark">▦</span><span>格物<small>桌面智能零件柜</small></span></a><div class="header-right"><span class="mode">模拟设备 · 无电机连接</span><span id="connection" class="connection">连接中</span></div></header>
+    <main>
+      <div class="intro"><div><p class="eyebrow">单层双格 · 抽盒原型</p><h1>两个柜格，<span>先把取放做好。</span></h1><p class="muted">左右自动选格，丝杆前后抽盒；到位后确认盒子状态。</p></div><div class="summary"><strong id="storedCount">—</strong><span id="slotCount">盒在库 / 2 个柜格</span></div></div>
+      <section class="command-panel" aria-label="语音和文字指令">
+        <form id="commandForm"><span class="command-symbol">⌕</span><input id="command" maxlength="200" aria-label="零件名称或指令" placeholder="试试「拿 M3 螺母」或「二号盒在哪」" autocomplete="off"><button id="voiceButton" type="button" class="secondary">语音输入</button><button type="submit">解析指令</button></form>
+        <div class="command-bottom"><span id="voiceHint">文字指令可离线使用；语音可用性取决于浏览器和识别服务。</span><div class="examples"><button type="button" data-example="拿 M3 螺母">M3 螺母</button><button type="button" data-example="拿二号盒">二号盒</button><button type="button" data-example="放回当前盒">放回当前盒</button></div></div>
+        <div id="interpretation" hidden aria-live="polite"></div>
+      </section>
+      <div id="notice" class="notice" role="status" hidden></div>
+      <div class="workspace">
+        <section class="cabinet-panel"><div class="panel-heading"><div><p class="eyebrow">CABINET / 01</p><h2>零件阵列</h2></div><span id="layoutLabel" class="subtle">1 行 × 2 列 · 自动选格</span></div><div id="boxes" class="boxes two-slot"></div><div class="legend"><span><i class="dot green"></i>在库</span><span><i class="dot blue"></i>执行中 / 已送达</span><span><i class="dot orange"></i>待核对</span></div><p class="small muted">PD42S1 左右选格，A4988 丝杆前后抽盒。盒子完全离柜后，平台左移至固定取物区；回件时送回原格。</p><a class="model-link" href="/models-preview.svg" target="_blank" rel="noopener">查看 STL 原始模型四视图 ↗</a></section>
+        <aside class="side-panel">
+          <section class="pickup"><div class="panel-heading"><h2>取物口</h2><span id="deviceState" class="badge">—</span></div><div id="pickupVisual" class="pickup-visual">▱</div><h3 id="pickupTitle">取物口暂无零件盒</h3><p id="pickupDetail" class="muted">完成回零后，选择需要的零件。</p><label class="check"><input id="areaClear" type="checkbox">取用完成，手已离开取物口</label><button id="returnButton" class="wide" disabled>归还当前盒</button><p class="small muted">盒子留在托盘上，取用内部零件即可。</p></section>
+          <section class="activity"><p class="eyebrow">CURRENT TASK</p><h2 id="taskTitle">等待任务</h2><div class="progress"><div id="progressBar"></div></div><p id="taskDetail" class="muted">每次处理一个盒子</p><ol id="events" class="events"></ol></section>
+          <section id="confirmationPanel" class="activity" hidden><h2>确认盒子实际位置</h2><p id="confirmationText" class="muted"></p><button id="confirmPosition" class="wide">确认盒子位置</button><p class="small muted">微动开关和电机到位仅反映轴位置；此步骤由人确认盒子。</p></section>
+        </aside>
+      </div>
+      <section class="history"><div class="panel-heading"><h2>操作记录</h2><span class="subtle">最近 30 条 · 本地保存</span></div><div class="table-scroll"><table><thead><tr><th>时间</th><th>动作</th><th>盒号</th><th>状态</th><th>阶段 / 说明</th></tr></thead><tbody id="history"></tbody></table></div></section>
+      <details class="engineering"><summary>设备调试与模拟验证</summary><p class="muted">本页当前为软件模拟。停止按钮是软件停止请求，实体机构仍需独立急停。</p><div class="engineering-actions"><button id="homeButton" class="secondary">模拟回零</button><button id="stopButton" class="danger">停止任务</button><button id="resetButton" class="secondary">恢复模拟初始位置</button><label class="check"><input id="injectFault" type="checkbox">下一次取件模拟“抽盒轴未到位”</label></div><p class="small muted">恢复只修改模拟位置，保留零件名称和任务历史；恢复后需要重新回零。旧六格数据保留，当前仅启用 B01、B02。</p></details>
+    </main><footer><span>格物 GEWU</span><span>ESP32-S3 · PD42S1 TTL + A4988 · 两轴</span></footer>
+  </div>
+  <dialog id="editDialog"><form id="editForm"><p class="eyebrow" id="editBoxId"></p><h2>编辑零件信息</h2><label>零件名称<input id="editName" required maxlength="60"></label><label>别名（用逗号分隔）<input id="editAliases" maxlength="480"></label><p id="editError" class="error" role="alert"></p><div class="dialog-actions"><button id="cancelEdit" type="button" class="secondary">取消</button><button type="submit">保存</button></div></form></dialog>
+  <dialog id="alignmentDialog"><form id="alignmentForm"><p class="eyebrow">自动选格 · TWO AXES</p><h2 id="alignmentTitle"></h2><p class="muted">机构将先让开横移路径，再对准目标柜格抽盒。请确认运动范围无人、无障碍，抽出路径有支撑。</p><label class="check"><input id="alignmentChecked" type="checkbox" required>运动路径已清空，手已离开运动区域</label><div class="dialog-actions"><button id="cancelAlignment" type="button" class="secondary">取消</button><button type="submit">开始抽盒</button></div></form></dialog>
+  <script src="/app.js" type="module"></script>
+</body>
+</html>

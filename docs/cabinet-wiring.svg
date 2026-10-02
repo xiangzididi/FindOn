@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="1330" viewBox="0 0 1700 1330"><title>格物双轴零件柜接线图 R2</title><desc>ESP32-S3-N16R8 使用脉冲方向控制 PD42S1 与 A4988，当前没有原点或限位开关，共地供电。候选接线，尚未实物验证。</desc><rect width="1700" height="1330" fill="#f5f7fa"/><g font-family="Microsoft YaHei, Noto Sans CJK SC, sans-serif">
+<text x="45" y="53" font-size="32" fill="#203448" font-weight="600">格物 / 单层两格 · 双轴电气接线图</text>
+<text x="45" y="88" font-size="19" fill="#586a7a" font-weight="400">R2 · 2026-10-02    GPIO 为候选分配；按端子名称接线，图中排列不代表模块实物针脚顺序。</text>
+<text x="45" y="118" font-size="18" fill="#586a7a" font-weight="400">同名网络（+3V3 / GND / +VM）相连；实心圆为连接点，交叉无圆点不相连。两轴均为 STEP/DIR。</text>
+<rect x="40" y="145" width="790" height="340" rx="8" fill="white" stroke="#bccad5"/>
+<text x="60" y="178" font-size="22" fill="#203448" font-weight="600">01  X 轴：PD42S1 + 丝杆 / 导轨</text>
+<rect x="65" y="205" width="210" height="210" rx="8" fill="white" stroke="#bccad5"/>
+<text x="85" y="238" font-size="22" fill="#203448" font-weight="600">ESP32-S3</text>
+<rect x="560" y="205" width="240" height="210" rx="8" fill="white" stroke="#bccad5"/>
+<text x="580" y="238" font-size="22" fill="#203448" font-weight="600">PD42S1</text>
+<text x="85" y="271" font-size="19" fill="#203448" font-weight="400">GPIO17</text>
+<text x="580" y="271" font-size="19" fill="#203448" font-weight="400">STP</text>
+<path d="M275 265H560V265" fill="none" stroke="#1768ac" stroke-width="2"/>
+<text x="85" y="310" font-size="19" fill="#203448" font-weight="400">GPIO18</text>
+<text x="580" y="310" font-size="19" fill="#203448" font-weight="400">DIR</text>
+<path d="M275 304H560V304" fill="none" stroke="#1768ac" stroke-width="2"/>
+<text x="85" y="349" font-size="19" fill="#203448" font-weight="400">3V3</text>
+<text x="580" y="349" font-size="19" fill="#203448" font-weight="400">COM</text>
+<path d="M275 343H560V343" fill="none" stroke="#b43b35" stroke-width="2"/>
+<text x="85" y="388" font-size="19" fill="#203448" font-weight="400">GND</text>
+<text x="580" y="388" font-size="19" fill="#203448" font-weight="400">GND</text>
+<path d="M275 382H560V382" fill="none" stroke="#344e65" stroke-width="2"/>
+<text x="65" y="447" font-size="18" fill="#203448" font-weight="400">LCD：脉冲模式；EN 保持有效、EN 端不接（沿用用户示例）。</text>
+<text x="65" y="473" font-size="17" fill="#586a7a" font-weight="400">16 细分；电机 → 1:50 减速箱 → 2 mm 导程丝杆。电机供电见 04。</text>
+<rect x="860" y="145" width="800" height="580" rx="8" fill="white" stroke="#bccad5"/>
+<text x="880" y="178" font-size="22" fill="#203448" font-weight="600">02  E 轴：A4988 + 约 50 mm 丝杆模组</text>
+<rect x="885" y="235" width="200" height="200" rx="8" fill="white" stroke="#bccad5"/>
+<text x="905" y="268" font-size="22" fill="#203448" font-weight="600">ESP32-S3</text>
+<rect x="1290" y="225" width="225" height="450" rx="8" fill="white" stroke="#bccad5"/>
+<text x="1310" y="258" font-size="22" fill="#203448" font-weight="600">A4988</text>
+<text x="905" y="301" font-size="19" fill="#203448" font-weight="400">GPIO15</text>
+<text x="1310" y="301" font-size="18" fill="#203448" font-weight="400">STEP</text>
+<path d="M1085 295H1290V295" fill="none" stroke="#1768ac" stroke-width="2"/>
+<text x="905" y="346" font-size="19" fill="#203448" font-weight="400">GPIO16</text>
+<text x="1310" y="346" font-size="18" fill="#203448" font-weight="400">DIR</text>
+<path d="M1085 340H1290V340" fill="none" stroke="#1768ac" stroke-width="2"/>
+<text x="905" y="406" font-size="19" fill="#203448" font-weight="400">GPIO7</text>
+<text x="1310" y="406" font-size="18" fill="#203448" font-weight="400">EN（低有效）</text>
+<path d="M1085 400H1290V400" fill="none" stroke="#1768ac" stroke-width="2"/>
+<text x="1150" y="222" font-size="17" fill="#b43b35" font-weight="400">+3V3</text>
+<path d="M1180 232V240" fill="none" stroke="#b43b35" stroke-width="2"/>
+<path d="M1180 240v10" fill="none" stroke="#344e65" stroke-width="2"/>
+<rect x="1175" y="250" width="10" height="24" fill="white" stroke="#344e65" stroke-width="2"/>
+<path d="M1180 274v10" fill="none" stroke="#344e65" stroke-width="2"/>
+<path d="M1180 284V400" fill="none" stroke="#344e65" stroke-width="2"/>
+<circle cx="1180" cy="400" r="4" fill="#344e65"/>
+<text x="1192" y="272" font-size="16" fill="#203448" font-weight="400">10 kΩ</text>
+<text x="886" y="480" font-size="17" fill="#586a7a" font-weight="400">STEP、DIR 各接 10 kΩ 下拉到 GND。</text>
+<text x="886" y="508" font-size="17" fill="#586a7a" font-weight="400">EN 上拉：控制器启动时默认禁用。</text>
+<text x="886" y="550" font-size="18" fill="#b43b35" font-weight="400">+3V3</text>
+<path d="M960 544H1290V544" fill="none" stroke="#b43b35" stroke-width="2"/>
+<text x="1090" y="535" font-size="16" fill="#b43b35" font-weight="400">VDD</text>
+<text x="1310" y="550" font-size="19" fill="#203448" font-weight="400">VDD</text>
+<path d="M1220 544V600H1290" fill="none" stroke="#b43b35" stroke-width="2"/>
+<circle cx="1220" cy="544" r="4" fill="#344e65"/>
+<text x="1310" y="588" font-size="19" fill="#203448" font-weight="400">RST</text>
+<text x="1310" y="615" font-size="19" fill="#203448" font-weight="400">SLP</text>
+<path d="M1270 582H1290M1270 582V609H1290" fill="none" stroke="#b43b35" stroke-width="2"/>
+<circle cx="1270" cy="600" r="4" fill="#344e65"/>
+<text x="886" y="584" font-size="17" fill="#586a7a" font-weight="400">RST、SLP 短接后接 +3V3。</text>
+<text x="886" y="620" font-size="17" fill="#b43b35" font-weight="400">MS1 / MS2 / MS3 → +3V3</text>
+<text x="886" y="650" font-size="17" fill="#586a7a" font-weight="400">建议 1/16 细分；固件参数须一致。</text>
+<text x="1310" y="652" font-size="16" fill="#203448" font-weight="400">MS1 / MS2 / MS3</text>
+<text x="1185" y="682" font-size="16" fill="#b43b35" font-weight="400">+3V3</text>
+<path d="M1220 669V646H1290" fill="none" stroke="#b43b35" stroke-width="2"/>
+<text x="1445" y="286" font-size="16" fill="#203448" font-weight="400">1A</text>
+<path d="M1515 280H1580" fill="none" stroke="#168077" stroke-width="2"/>
+<text x="1610" y="286" font-size="17" fill="#168077" font-weight="400">A</text>
+<text x="1445" y="324" font-size="16" fill="#203448" font-weight="400">1B</text>
+<path d="M1515 318H1580" fill="none" stroke="#168077" stroke-width="2"/>
+<text x="1610" y="324" font-size="17" fill="#168077" font-weight="400">A</text>
+<text x="1445" y="366" font-size="16" fill="#203448" font-weight="400">2A</text>
+<path d="M1515 360H1580" fill="none" stroke="#168077" stroke-width="2"/>
+<text x="1610" y="366" font-size="17" fill="#168077" font-weight="400">B</text>
+<text x="1445" y="404" font-size="16" fill="#203448" font-weight="400">2B</text>
+<path d="M1515 398H1580" fill="none" stroke="#168077" stroke-width="2"/>
+<text x="1610" y="404" font-size="17" fill="#168077" font-weight="400">B</text>
+<path d="M1580 280c20 0 20 12.6 0 12.6c20 0 20 12.7 0 12.7c20 0 20 12.7 0 12.7M1580 360c20 0 20 12.6 0 12.6c20 0 20 12.7 0 12.7c20 0 20 12.7 0 12.7" fill="none" stroke="#168077" stroke-width="2"/>
+<text x="1530" y="455" font-size="16" fill="#168077" font-weight="400">电机线圈</text>
+<text x="1530" y="480" font-size="16" fill="#168077" font-weight="400">A 对 / B 对</text>
+<text x="886" y="700" font-size="17" fill="#586a7a" font-weight="400">线圈按万用表测得的两组线对连接，不按线色猜；VMOT / GND 见 04。</text>
+<rect x="40" y="505" width="790" height="220" rx="8" fill="white" stroke="#bccad5"/>
+<text x="60" y="538" font-size="22" fill="#203448" font-weight="600">03  当前无原点 / 限位开关</text>
+<text x="70" y="568" font-size="19" fill="#203448" font-weight="400">GPIO4、GPIO5 保持不连接，不在固件中配置为回零输入。</text>
+<text x="70" y="610" font-size="18" fill="#1768ac" font-weight="400">断开电机电源后，人工对准：X 左侧取物区标记；E 完全回缩安全标记。</text>
+<text x="70" y="650" font-size="18" fill="#b43b35" font-weight="400">控制器复位、掉电、堵转、丢步或人工移动后，人工参考立即失效。</text>
+<text x="70" y="690" font-size="18" fill="#b43b35" font-weight="400">没有硬件端点保护：仅允许短距离低速点动，软限位尚未标定。</text>
+<rect x="40" y="745" width="1620" height="310" rx="8" fill="white" stroke="#bccad5"/>
+<text x="60" y="778" font-size="22" fill="#203448" font-weight="600">04  供电与共地</text>
+<rect x="65" y="815" width="195" height="140" rx="8" fill="white" stroke="#bccad5"/>
+<text x="85" y="848" font-size="22" fill="#203448" font-weight="600">直流电源</text>
+<text x="85" y="885" font-size="21" fill="#b43b35" font-weight="400">12 V 候选</text>
+<text x="85" y="919" font-size="17" fill="#586a7a" font-weight="400">电流容量待核算</text>
+<text x="285" y="843" font-size="19" fill="#203448" font-weight="400">F1 保险丝</text>
+<path d="M260 865H330" fill="none" stroke="#344e65" stroke-width="2"/>
+<rect x="330" y="855" width="50" height="20" fill="white" stroke="#344e65" stroke-width="2"/>
+<path d="M380 865H465" fill="none" stroke="#344e65" stroke-width="2"/>
+<text x="430" y="812" font-size="19" fill="#203448" font-weight="400">S0 电机电源切断</text>
+<text x="430" y="838" font-size="16" fill="#586a7a" font-weight="400">需匹配直流负载额定值</text>
+<path d="M465 865L520 850M520 865H620" fill="none" stroke="#344e65" stroke-width="2"/>
+<text x="610" y="843" font-size="18" fill="#b43b35" font-weight="400">+VM</text>
+<path d="M620 865H740V805H920M740 865V915H920" fill="none" stroke="#b43b35" stroke-width="3"/>
+<circle cx="740" cy="865" r="4" fill="#344e65"/>
+<text x="935" y="811" font-size="20" fill="#b43b35" font-weight="400">PD42S1 电源正端（核对实际丝印）</text>
+<text x="935" y="921" font-size="20" fill="#b43b35" font-weight="400">A4988 VMOT</text>
+<path d="M260 955H1410" fill="none" stroke="#344e65" stroke-width="3"/>
+<text x="285" y="982" font-size="18" fill="#203448" font-weight="400">电源负极 / GND 星形接地点</text>
+<text x="850" y="1016" font-size="19" fill="#203448" font-weight="400">PD42S1 GND、A4988 两个 GND、ESP32 GND 全部共地。</text>
+<path d="M1180 915V928M1165 928H1195M1165 936H1195M1180 936V955" fill="none" stroke="#344e65" stroke-width="2"/>
+<circle cx="1180" cy="915" r="4" fill="#344e65"/>
+<circle cx="1180" cy="955" r="4" fill="#344e65"/>
+<path d="M1140 915H1180" fill="none" stroke="#b43b35" stroke-width="2"/>
+<text x="1205" y="912" font-size="18" fill="#b43b35" font-weight="400">+</text>
+<text x="1210" y="936" font-size="15" fill="#203448" font-weight="400">C1 ≥47 µF（建议100 µF / 35 V，12 V供电时）</text>
+<text x="1125" y="897" font-size="17" fill="#b43b35" font-weight="400">+VM</text>
+<text x="1210" y="978" font-size="16" fill="#586a7a" font-weight="400">电解电容靠近 VMOT，正端接 +VM。</text>
+<text x="65" y="1020" font-size="18" fill="#203448" font-weight="400">PC USB → ESP32-S3 USB 供电 / 通信；ESP32 的 3V3 仅供逻辑。</text>
+<text x="45" y="1100" font-size="23" fill="#203448" font-weight="600">装配前核对</text>
+<text x="45" y="1136" font-size="19" fill="#203448" font-weight="400">① 电源暂按 12 V 规划；核对驱动板额定值与负载，先设置 A4988 限流，禁止带电插拔电机。</text>
+<text x="45" y="1170" font-size="19" fill="#203448" font-weight="400">② A4988：Vref = 8 × Imax × Rs；Rs 按实际板上采样电阻，Imax 不超过电机与载板允许值。</text>
+<text x="45" y="1204" font-size="19" fill="#203448" font-weight="400">③ PD42S1 EN 未接时不能靠软件撤销使能；S0 只示意电机断电路径，不代表完整安全急停系统。</text>
+<text x="45" y="1238" font-size="19" fill="#203448" font-weight="400">④ 当前无原点/限位开关；GPIO4/5 不连接。先做人工基准标记，再标定软限位与两格坐标。</text>
+<text x="45" y="1284" font-size="17" fill="#586a7a" font-weight="400">依据：用户提供的 PD42S1 脉冲示例 / 正点原子 PD42S1 手册 / Pololu A4988 载板说明。未完成实物接线验证。</text>
+</g></svg>

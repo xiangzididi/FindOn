@@ -1,0 +1,18 @@
+{
+  "profile": "single-layer-two-slot",
+  "rows": 1,
+  "columns": 2,
+  "controller": "ESP32-S3-N16R8",
+  "motor": "PD42S1 TTL STEP/DIR",
+  "x_transmission": "leadscrew_linear_rail",
+  "motor_axis": "X",
+  "extraction_driver": "A4988 STEP/DIR",
+  "extraction_stroke_nominal_mm": 50,
+  "selection": "automatic",
+  "pickup": "left_side_fixed_station",
+  "box_confirmation": "operator",
+  "slots": [
+    { "id": "S01", "box_id": "B01", "row": 0, "column": 0, "name": "M3 螺母", "aliases": ["三毫米螺母", "螺母"] },
+    { "id": "S02", "box_id": "B02", "row": 0, "column": 1, "name": "M3 螺丝", "aliases": ["三毫米螺丝", "螺丝"] }
+  ]
+}

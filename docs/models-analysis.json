@@ -1,0 +1,47 @@
+{
+  "units": "STL does not encode units; millimetres are an unconfirmed interpretation",
+  "models": [
+    {
+      "file": "架子.stl",
+      "count": 704,
+      "minimum": [
+        -1,
+        -49.90055465698242,
+        -4
+      ],
+      "maximum": [
+        156,
+        0,
+        58.900001525878906
+      ],
+      "size": [
+        157,
+        49.90055465698242,
+        62.900001525878906
+      ]
+    },
+    {
+      "file": "盒子及钩件.stl",
+      "count": 1388,
+      "minimum": [
+        5,
+        -56.40055465698242,
+        0
+      ],
+      "maximum": [
+        75,
+        -5,
+        53
+      ],
+      "size": [
+        70,
+        51.40055465698242,
+        53
+      ]
+    }
+  ],
+  "notes": [
+    "Original meshes preserved. No second box or motion assembly invented.",
+    "Bounds include protrusions; they are not internal cavity sizes."
+  ]
+}

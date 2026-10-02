@@ -1,0 +1,71 @@
+{
+  "status": "draft_not_enabled",
+  "motion_enabled": false,
+  "controller": "ESP32-S3-N16R8",
+  "board_pinout_verified": false,
+  "note": "Calibration worksheet only. Neither server nor automatic firmware loads this file for motion.",
+  "axes": {
+    "X": {
+      "driver": "PD42S1 PLC-TTL STEP/DIR",
+      "transmission": "50_to_1_gearbox_then_2mm_leadscrew_linear_rail",
+      "step_gpio_proposed": 17,
+      "dir_gpio_proposed": 18,
+      "enable_gpio": null,
+      "home_gpio": null,
+      "step_signal_active_level": "LOW",
+      "step_signal_idle_level": "HIGH",
+      "full_steps_per_motor_revolution": 200,
+      "microsteps": 16,
+      "gearbox_ratio_motor_to_output": 50,
+      "lead_mm_per_output_revolution": 2,
+      "pulses_per_motor_revolution": 3200,
+      "pulses_per_output_revolution": 160000,
+      "pulses_per_mm": 80000,
+      "nominal_travel_mm": 250,
+      "measured_usable_travel_mm": null,
+      "positive_direction_level": null,
+      "pickup_coordinate_mm": null,
+      "slot_align_coordinates_mm": {
+        "S01": null,
+        "S02": null
+      },
+      "hook_engage_shift_mm": null,
+      "manual_reference": "left_pickup_station_mark",
+      "jog_pulse_rate_hz": 20000,
+      "scale_source": "user_confirmed_specs_not_measured"
+    },
+    "E": {
+      "driver": "A4988 STEP/DIR",
+      "transmission": "direct_2mm_leadscrew_linear_rail",
+      "step_gpio_proposed": 15,
+      "dir_gpio_proposed": 16,
+      "enable_gpio_proposed": 7,
+      "home_gpio": null,
+      "step_signal_active_level": "HIGH",
+      "step_signal_idle_level": "LOW",
+      "full_steps_per_motor_revolution": 200,
+      "microsteps": 16,
+      "gearbox_ratio_motor_to_output": 1,
+      "lead_mm_per_output_revolution": 2,
+      "pulses_per_motor_revolution": 3200,
+      "pulses_per_output_revolution": 3200,
+      "pulses_per_mm": 1600,
+      "nominal_travel_mm": 50,
+      "measured_usable_travel_mm": null,
+      "positive_direction_level": null,
+      "manual_reference": "fully_retracted_clear_position_mark",
+      "jog_pulse_rate_hz": 2000,
+      "motor_rated_current_a": null,
+      "sense_resistor_ohms": null,
+      "scale_source": "user_confirmed_specs_not_measured"
+    }
+  },
+  "limits": {
+    "switch_count": 0,
+    "automatic_homing_available": false,
+    "reference_method": "power_off_manual_alignment_to_physical_marks_then_operator_confirmed_zero",
+    "reference_valid_until": "controller_reset_motor_power_loss_stall_or_manual_axis_movement",
+    "soft_limits_mm": null
+  },
+  "pickup_location": "left_side_fixed_station"
+}
