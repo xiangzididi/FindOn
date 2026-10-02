@@ -9,9 +9,9 @@ const dot=(x,y)=>s.push(`<circle cx="${x}" cy="${y}" r="4" fill="${c.line}"/>`);
 const wire=(x1,y1,x2,y2,label='',color=c.blue)=>{path(`M${x1} ${y1}H${x2}V${y2}`,color);if(label)text((x1+x2)/2-35,y1-9,label,16,color);};
 const ground=(x,y)=>{path(`M${x} ${y}v12m-14 0h28m-23 6h18m-13 6h8`);};
 const resistor=(x,y)=>{path(`M${x} ${y}v10`);s.push(`<rect x="${x-5}" y="${y+10}" width="10" height="24" fill="white" stroke="${c.line}" stroke-width="2"/>`);path(`M${x} ${y+34}v10`);};
-s.push(`<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="1330" viewBox="0 0 1700 1330"><title>格物双轴零件柜接线图 R3</title><desc>ESP32-S3-N16R8 使用脉冲方向控制带 1:50 减速箱的 PD42S1 与 A4988，当前没有原点或限位开关，共地供电。</desc><rect width="1700" height="1330" fill="${c.bg}"/><g font-family="Microsoft YaHei, Noto Sans CJK SC, sans-serif">`);
+s.push(`<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="1330" viewBox="0 0 1700 1330"><title>格物双轴零件柜接线图 R4</title><desc>ESP32-S3-N16R8 使用脉冲方向控制带 1:50 减速箱的 PD42S1 与 R100 采样电阻 A4988，当前没有原点或限位开关，共地供电。</desc><rect width="1700" height="1330" fill="${c.bg}"/><g font-family="Microsoft YaHei, Noto Sans CJK SC, sans-serif">`);
 text(45,53,'格物 / 单层两格 · 双轴电气接线图',32,c.ink,600);
-text(45,88,'R3 · 最新确认版    GPIO 按当前测试固件；按端子名称接线，图中排列不代表模块实物针脚顺序。',19,c.muted);
+text(45,88,'R4 · 实物照片更新    GPIO 按当前测试固件；按端子名称接线，图中排列不代表模块实物针脚顺序。',19,c.muted);
 text(45,118,'同名网络（+3V3 / GND / +VM）相连；实心圆为连接点，交叉无圆点不相连。两轴均为 STEP/DIR。',18,c.muted);
 
 box(40,145,790,340,'01  X 轴：PD42S1 + 丝杆 / 导轨');
@@ -48,7 +48,7 @@ text(70,650,'控制器复位、掉电、堵转、丢步或人工移动后，人�
 text(70,690,'没有硬件端点保护：仅允许短距离低速点动，软限位尚未标定。',18,c.red);
 
 box(40,745,1620,310,'04  供电与共地');
-box(65,815,195,140,'直流电源');text(85,885,'12 V 候选',21,c.red);text(85,919,'电流容量待核算',17,c.muted);
+box(65,815,195,140,'直流电源');text(85,885,'12 V 已确认',21,c.red);text(85,919,'电流容量待核算',17,c.muted);
 text(285,843,'F1 保险丝');path('M260 865H330');s.push('<rect x="330" y="855" width="50" height="20" fill="white" stroke="#344e65" stroke-width="2"/>');path('M380 865H465');
 text(430,812,'S0 电机电源切断');text(430,838,'需匹配直流负载额定值',16,c.muted);path('M465 865L520 850M520 865H620');
 text(610,843,'+VM',18,c.red);path('M620 865H740V805H920M740 865V915H920',c.red,3);dot(740,865);
@@ -60,8 +60,8 @@ text(1210,978,'电解电容靠近 VMOT，正端接 +VM。',16,c.muted);
 text(65,1020,'PC USB → ESP32-S3 USB 供电 / 通信；ESP32 的 3V3 仅供逻辑。',18);
 
 text(45,1100,'装配前核对',23,c.ink,600);
-text(45,1136,'① 电源暂按 12 V 规划；核对驱动板额定值与负载，先设置 A4988 限流，禁止带电插拔电机。',19);
-text(45,1170,'② A4988：Vref = 8 × Imax × Rs；Rs 按实际板上采样电阻，Imax 不超过电机与载板允许值。',19);
+text(45,1136,'① 电机电源为 12 V；核对负载与电源容量，先设置 A4988 限流，禁止带电插拔电机。',19);
+text(45,1170,'② A4988 实物为 R100：Rs=0.10 Ω；额定电流未知时先设 Vref≈0.20 V（约 0.25 A）。',19);
 text(45,1204,'③ PD42S1 EN 未接时不能靠软件撤销使能；S0 只示意电机断电路径，不代表完整安全急停系统。',19);
 text(45,1238,'④ 当前无原点/限位开关；GPIO4/5 不连接。先做人工基准标记，再标定软限位与两格坐标。',19);
 text(45,1284,'依据：用户提供的 PD42S1 脉冲示例 / 正点原子 PD42S1 手册 / Pololu A4988 载板说明。未完成实物接线验证。',17,c.muted);

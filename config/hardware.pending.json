@@ -56,7 +56,11 @@
       "manual_reference": "fully_retracted_clear_position_mark",
       "jog_pulse_rate_hz": 2000,
       "motor_rated_current_a": null,
-      "sense_resistor_ohms": null,
+      "motor_supply_voltage_v": 12,
+      "sense_resistor_marking": "R100",
+      "sense_resistor_ohms": 0.1,
+      "initial_vref_v": 0.2,
+      "initial_current_limit_a": 0.25,
       "scale_source": "user_confirmed_specs_not_measured"
     }
   },
