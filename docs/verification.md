@@ -13,7 +13,9 @@
 - X 计算比例为 80000 pulse/mm，E 为 1600 pulse/mm；尚未做实际位移复核。
 - `GEWU-AXIS-TEST-2.0-NO-ENDSTOPS` 已用 PlatformIO / Espressif32 6.3.1 编译通过，RAM 20044 B，固件 291597 B。
 - npm test：17/17 通过；npm run check：通过。
-- 当前串口列表只有蓝牙虚拟串口，ESP32-S3 未连接，所以本版尚未烧录和读取 `STATUS`。
+- ESP32-S3 重新连接为 COM12（USB VID:PID 303A:1001），`GEWU-AXIS-TEST-2.0-NO-ENDSTOPS` 已烧录且写入校验通过。
+- 烧录复位后通过 COM12 / 115200 读取 `STATUS` 成功：`endstops=NONE`、`homing=UNAVAILABLE`、`Xgear=50:1`、`Xscale=80000pulse/mm`、`Escale=1600pulse/mm`、`position=UNREFERENCED`。
+- 验证只发送了 `STATUS`，未发送 ARM/JOG，电机未被命令运动。
 
 以下为上一版本记录：
 
