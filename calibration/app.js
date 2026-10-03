@@ -70,7 +70,11 @@ function render(state) {
   $("#progressNumber").textContent = `${completeCount} / 5`;
   $("#progressText").textContent = missing.length ? `还有 ${missing.length} 项需要处理` : "所有必需参数已就绪";
   $("#headerPreview").textContent = state.header_preview || "参数完整后生成";
-  $("#applyButton").disabled = missing.length > 0 || state.moving;
+  const simulationApplyLocked = state.mode === "simulation";
+  $("#applyButton").disabled = missing.length > 0 || state.moving || simulationApplyLocked;
+  $("#applyNote").textContent = simulationApplyLocked
+    ? "安全模拟只验证界面与回执，不允许覆盖实机标定或最终固件配置。"
+    : "写入 machine_calibration.h 后仍需重新编译并烧录最终固件。";
 
   const move = state.last_move;
   const measurement = $("#measurementForm");

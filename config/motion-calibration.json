@@ -1,11 +1,12 @@
 {
   "version": 1,
-  "updated_at": "2026-10-03T06:34:49.204858+00:00",
+  "updated_at": "2026-10-03T13:50:35.9727791+00:00",
+  "calibration_id": "sha256:cc1c95986974daccbf755497cff7d538567dadf5f3a38973d9f94a4cfc739ef8",
   "x": {
     "pulses_per_mm": 20000,
     "calibrated": true,
     "dir_high_motion": "RIGHT",
-    "hook_shift_mm": 4.5
+    "hook_shift_mm": 5.2
   },
   "e": {
     "pulses_per_mm": 250,
@@ -17,10 +18,10 @@
   },
   "slots": {
     "S01": {
-      "x_mm": 30.5
+      "x_mm": 29.8
     },
     "S02": {
-      "x_mm": 104.5
+      "x_mm": 105.0
     }
   }
 }

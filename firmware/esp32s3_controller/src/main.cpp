@@ -12,10 +12,10 @@
 
 namespace {
 
-constexpr char FIRMWARE_VERSION[] = "PARTGO-CONTROLLER-2.0.1";
+constexpr char FIRMWARE_VERSION[] = "PARTGO-CONTROLLER-2.1.0";
 constexpr char PROTOCOL_NAME[] = "partgo-serial-v1";
 constexpr int PROTOCOL_VERSION = 1;
-constexpr int CONFIG_VERSION = 5;
+constexpr int CONFIG_VERSION = 6;
 
 constexpr int X_STEP_PIN = 17;
 constexpr int X_DIR_PIN = 18;
@@ -32,6 +32,7 @@ constexpr uint32_t E_MANUAL_PERIOD_US = 13067;
 constexpr uint32_t MOTION_TIMEOUT_MARGIN_MS = 5000;
 constexpr uint32_t MOTION_TIMEOUT_MAX_MS = 300000;
 constexpr uint32_t MANUAL_ARM_MS = 10000;
+constexpr uint32_t HOST_LEASE_MS = 2000;
 constexpr uint32_t MANUAL_E_MIN_PULSES = 1;
 constexpr uint32_t MANUAL_E_MAX_PULSES = 100;
 
@@ -46,12 +47,6 @@ constexpr partgo::EAxisConfig E_AXIS_CONFIG = {
     MOTION_TIMEOUT_MARGIN_MS,
     MOTION_TIMEOUT_MAX_MS,
 };
-
-static_assert((static_cast<uint64_t>(E_DOCK_UM) * E_PULSES_PER_MM +
-               500ULL * E_SCALE_DIVISOR) /
-                  (1000ULL * E_SCALE_DIVISOR) ==
-              245,
-              "48 mm E travel must equal 245 pulses");
 
 constexpr int32_t X_MIN_UM = 0;
 constexpr int32_t X_MAX_UM = 250000;
@@ -73,7 +68,7 @@ constexpr SlotConfig SLOTS[] = {
 };
 
 enum class MachineState { CONFIG_LOCKED, UNREFERENCED, READY, PRESENTED, BUSY, RECOVERY_REQUIRED };
-enum class Action { NONE, REFERENCE, FETCH, RETURN_BOX, MANUAL };
+enum class Action { NONE, REFERENCE, RECOVER, FETCH, RETURN_BOX, MANUAL };
 enum class Stage : uint8_t {
   NONE,
   FETCH_MOVE_SLOT,
@@ -111,6 +106,7 @@ int32_t xPositionUm = 0;
 bool referenced = false;
 uint32_t eventSequence = 0;
 char activeTaskId[65] = "";
+char activeHostSessionId[65] = "";
 char activeSlotId[5] = "";
 char presentedSlotId[5] = "";
 char lastTaskId[65] = "";
@@ -120,6 +116,7 @@ bool droppingInput = false;
 char manualArmedAxis = 0;
 char manualMotionAxis = 0;
 uint32_t manualArmedAtMs = 0;
+uint32_t lastHostContactMs = 0;
 
 const char *stateName(MachineState value) {
   switch (value) {
@@ -134,7 +131,7 @@ const char *stateName(MachineState value) {
 }
 
 bool motionConfigured() {
-  if (!X_PULSES_PER_MM || !E_PULSES_PER_MM || !E_SCALE_DIVISOR ||
+  if (!CALIBRATION_ID[0] || !X_PULSES_PER_MM || !E_PULSES_PER_MM || !E_SCALE_DIVISOR ||
       E_DOCK_UM <= 0 || E_DOCK_UM > 50000 ||
       X_HOOK_SHIFT_UM <= 0 || X_HOOK_SHIFT_UM > 20000) return false;
   for (const auto &slot : SLOTS) {
@@ -219,20 +216,24 @@ void sendResult(bool success, const char *error = nullptr) {
   Serial.println("}");
 }
 
-void sendEvent(const char *phase, const char *sensorFields = nullptr) {
-  Serial.printf("{\"v\":1,\"type\":\"event\",\"task_id\":\"%s\",\"seq\":%lu,\"phase\":\"%s\",\"sensors\":{\"evidence\":\"open_loop_pulse_count\"",
-                activeTaskId, static_cast<unsigned long>(++eventSequence), phase);
+void sendEvent(const char *phase, const char *sensorFields = nullptr,
+               const char *evidence = "open_loop_pulse_count") {
+  Serial.printf("{\"v\":1,\"type\":\"event\",\"task_id\":\"%s\",\"seq\":%lu,\"phase\":\"%s\",\"sensors\":{\"evidence\":\"%s\"",
+                activeTaskId, static_cast<unsigned long>(++eventSequence), phase,
+                evidence);
   if (sensorFields && sensorFields[0]) Serial.printf(",%s", sensorFields);
   Serial.println("}}");
 }
 
 void sendStatus(const char *type, const char *requestId) {
   const bool configured = motionConfigured();
-  Serial.printf("{\"v\":1,\"type\":\"%s\",\"request_id\":\"%s\",\"protocol\":\"%s\",\"node\":\"ESP32-S3\",\"firmware\":\"%s\",\"state\":\"%s\",\"motion_configured\":%s,\"referenced\":%s,\"busy\":%s,\"config_version\":%d,",
+  Serial.printf("{\"v\":1,\"type\":\"%s\",\"request_id\":\"%s\",\"protocol\":\"%s\",\"node\":\"ESP32-S3\",\"firmware\":\"%s\",\"state\":\"%s\",\"motion_configured\":%s,\"referenced\":%s,\"busy\":%s,\"config_version\":%d,\"calibration_id\":\"%s\",\"presented_slot_id\":",
                 type, requestId, PROTOCOL_NAME, FIRMWARE_VERSION, stateName(machineState),
                 configured ? "true" : "false", referenced ? "true" : "false",
-                action == Action::NONE ? "false" : "true", CONFIG_VERSION);
-  Serial.printf("\"layout\":{\"rows\":2,\"columns\":2,\"has_y_axis\":%s},\"calibration\":{\"x_pulse_per_mm\":%lu,\"e_pulse_per_mm\":%.4f,\"e_scale_numerator\":%lu,\"e_scale_denominator\":%lu,\"e_driver_microsteps\":1,\"e_dock_um\":%ld,\"x_hook_shift_um\":%ld},\"slots\":[",
+                action == Action::NONE ? "false" : "true", CONFIG_VERSION, CALIBRATION_ID);
+  if (presentedSlotId[0]) Serial.printf("\"%s\"", presentedSlotId);
+  else Serial.print("null");
+  Serial.printf(",\"layout\":{\"rows\":2,\"columns\":2,\"has_y_axis\":%s},\"calibration\":{\"x_pulse_per_mm\":%lu,\"e_pulse_per_mm\":%.4f,\"e_scale_numerator\":%lu,\"e_scale_denominator\":%lu,\"e_driver_microsteps\":1,\"e_dock_um\":%ld,\"x_hook_shift_um\":%ld},\"slots\":[",
                 HAS_Y_AXIS ? "true" : "false", static_cast<unsigned long>(X_PULSES_PER_MM),
                 static_cast<double>(E_PULSES_PER_MM) / E_SCALE_DIVISOR,
                 static_cast<unsigned long>(E_PULSES_PER_MM),
@@ -252,6 +253,7 @@ void clearTask() {
   action = Action::NONE;
   stage = Stage::NONE;
   activeTaskId[0] = 0;
+  activeHostSessionId[0] = 0;
   activeSlotId[0] = 0;
   eventSequence = 0;
 }
@@ -498,7 +500,7 @@ void advancePlan() {
   const SlotConfig *slot = findSlot(activeSlotId);
   switch (stage) {
     case Stage::FETCH_MOVE_SLOT:
-      snprintf(fields, sizeof(fields), "\"slot_id\":\"%s\",\"x_in_position\":true,\"x_um\":%ld", activeSlotId, static_cast<long>(xPositionUm));
+      snprintf(fields, sizeof(fields), "\"slot_id\":\"%s\",\"motion_complete\":true,\"x_target_um\":%ld", activeSlotId, static_cast<long>(xPositionUm));
       sendEvent("SLOT_REACHED", fields);
       snprintf(fields, sizeof(fields),
                "\"axis\":\"E\",\"direction\":\"POSITIVE\",\"signed_pulses\":%lu",
@@ -508,7 +510,7 @@ void advancePlan() {
       if (!startEAbsolute(E_DOCK_UM, E_EXTEND_PERIOD_US, true)) advancePlan();
       break;
     case Stage::FETCH_EXTEND:
-      snprintf(fields, sizeof(fields), "\"axis_in_position\":true,\"e_um\":%ld", static_cast<long>(eAxis.positionUm()));
+      snprintf(fields, sizeof(fields), "\"motion_complete\":true,\"axis_target_commanded\":\"DOCK\",\"e_target_um\":%ld", static_cast<long>(eAxis.positionUm()));
       sendEvent("DOCK_REACHED", fields);
       snprintf(fields, sizeof(fields), "\"axis\":\"X\",\"direction\":\"RIGHT\",\"shift_um\":%ld", static_cast<long>(X_HOOK_SHIFT_UM));
       sendEvent("HOOK_SHIFTING", fields);
@@ -516,7 +518,7 @@ void advancePlan() {
       if (!startXAbsolute(slot->xUm + X_HOOK_SHIFT_UM)) advancePlan();
       break;
     case Stage::FETCH_HOOK_SHIFT:
-      snprintf(fields, sizeof(fields), "\"x_in_position\":true,\"hook_engaged\":true,\"x_um\":%ld", static_cast<long>(xPositionUm));
+      snprintf(fields, sizeof(fields), "\"motion_complete\":true,\"hook_action_commanded\":\"ENGAGE\",\"x_target_um\":%ld", static_cast<long>(xPositionUm));
       sendEvent("HOOK_ENGAGED", fields);
       snprintf(fields, sizeof(fields),
                "\"axis\":\"E\",\"direction\":\"NEGATIVE\",\"signed_pulses\":-%lu",
@@ -526,18 +528,18 @@ void advancePlan() {
       if (!startEAbsolute(0, E_RETRACT_PERIOD_US, false)) advancePlan();
       break;
     case Stage::FETCH_RETRACT:
-      sendEvent("EXTRACTION_REACHED", "\"axis_in_position\":true,\"axis_endpoint\":\"RETRACTED\",\"e_um\":0");
-      sendEvent("TRANSFER_READY", "\"motion_complete\":true,\"e_clear\":true");
+      sendEvent("EXTRACTION_REACHED", "\"motion_complete\":true,\"axis_endpoint_commanded\":\"RETRACTED\",\"e_target_um\":0");
+      sendEvent("TRANSFER_READY", "\"motion_complete\":true,\"e_clear_commanded\":true");
       sendEvent("MOVING_TO_PICKUP", "\"axis\":\"X\"");
       stage = Stage::FETCH_MOVE_PICKUP;
       if (!startXAbsolute(0)) advancePlan();
       break;
     case Stage::FETCH_MOVE_PICKUP:
-      sendEvent("PICKUP_REACHED", "\"x_in_position\":true,\"location\":\"PICKUP\",\"x_um\":0");
+      sendEvent("PICKUP_REACHED", "\"motion_complete\":true,\"location_commanded\":\"PICKUP\",\"x_target_um\":0");
       finishSuccess();
       break;
     case Stage::RETURN_MOVE_HOOKED_SLOT:
-      snprintf(fields, sizeof(fields), "\"slot_id\":\"%s\",\"x_in_position\":true,\"x_um\":%ld", activeSlotId, static_cast<long>(xPositionUm));
+      snprintf(fields, sizeof(fields), "\"slot_id\":\"%s\",\"motion_complete\":true,\"x_target_um\":%ld", activeSlotId, static_cast<long>(xPositionUm));
       sendEvent("SLOT_REACHED", fields);
       snprintf(fields, sizeof(fields),
                "\"axis\":\"E\",\"direction\":\"POSITIVE\",\"signed_pulses\":%lu",
@@ -547,14 +549,14 @@ void advancePlan() {
       if (!startEAbsolute(E_DOCK_UM, E_EXTEND_PERIOD_US, true)) advancePlan();
       break;
     case Stage::RETURN_EXTEND:
-      sendEvent("INSERTION_REACHED", "\"axis_in_position\":true,\"axis_endpoint\":\"EXTENDED\"");
+      sendEvent("INSERTION_REACHED", "\"motion_complete\":true,\"axis_endpoint_commanded\":\"EXTENDED\"");
       snprintf(fields, sizeof(fields), "\"axis\":\"X\",\"direction\":\"LEFT\",\"shift_um\":%ld", static_cast<long>(X_HOOK_SHIFT_UM));
       sendEvent("UNHOOKING", fields);
       stage = Stage::RETURN_UNHOOK_SHIFT;
       if (!startXAbsolute(slot->xUm)) advancePlan();
       break;
     case Stage::RETURN_UNHOOK_SHIFT:
-      snprintf(fields, sizeof(fields), "\"x_in_position\":true,\"hook_released\":true,\"x_um\":%ld", static_cast<long>(xPositionUm));
+      snprintf(fields, sizeof(fields), "\"motion_complete\":true,\"hook_action_commanded\":\"RELEASE\",\"x_target_um\":%ld", static_cast<long>(xPositionUm));
       sendEvent("HOOK_RELEASED", fields);
       snprintf(fields, sizeof(fields),
                "\"axis\":\"E\",\"direction\":\"NEGATIVE\",\"signed_pulses\":-%lu",
@@ -564,13 +566,13 @@ void advancePlan() {
       if (!startEAbsolute(0, E_RETRACT_PERIOD_US, false)) advancePlan();
       break;
     case Stage::RETURN_RETRACT:
-      sendEvent("E_CLEAR", "\"e_clear\":true,\"e_um\":0");
+      sendEvent("E_CLEAR", "\"motion_complete\":true,\"e_clear_commanded\":true,\"e_target_um\":0");
       sendEvent("MOVING_TO_PICKUP", "\"axis\":\"X\"");
       stage = Stage::RETURN_MOVE_PICKUP;
       if (!startXAbsolute(0)) advancePlan();
       break;
     case Stage::RETURN_MOVE_PICKUP:
-      sendEvent("PICKUP_REACHED", "\"x_in_position\":true,\"location\":\"PICKUP\",\"x_um\":0");
+      sendEvent("PICKUP_REACHED", "\"motion_complete\":true,\"location_commanded\":\"PICKUP\",\"x_target_um\":0");
       finishSuccess();
       break;
     default:
@@ -587,13 +589,34 @@ void startReference(const char *taskId) {
   eventSequence = 0;
   machineState = MachineState::BUSY;
   sendAck(taskId, true);
-  sendEvent("REFERENCE_ACCEPTED", "\"manual_reference_confirmed\":true");
+  sendEvent("REFERENCE_ACCEPTED", "\"manual_reference_confirmed\":true", "operator_confirmation");
   xPositionUm = 0;
   eAxis.referenceRetracted();
   referenced = true;
   machineState = MachineState::READY;
-  sendEvent("HOME_CONFIRMED", "\"homed\":true,\"home_reference_valid\":true,\"x_um\":0,\"e_um\":0");
+  sendEvent("HOME_CONFIRMED", "\"homed\":true,\"home_reference_valid\":true,\"x_um\":0,\"e_um\":0", "operator_confirmation");
   finishSuccess();
+}
+
+void startRecovery(const char *taskId) {
+  strncpy(activeTaskId, taskId, sizeof(activeTaskId) - 1);
+  activeTaskId[sizeof(activeTaskId) - 1] = 0;
+  action = Action::RECOVER;
+  eventSequence = 0;
+  machineState = MachineState::BUSY;
+  setSafeOutputs();
+  xMotion.active = false;
+  eAxis.invalidatePosition();
+  xPositionUm = 0;
+  referenced = false;
+  presentedSlotId[0] = 0;
+  manualArmedAxis = 0;
+  sendAck(taskId, true);
+  machineState = MachineState::UNREFERENCED;
+  sendResult(true);
+  strncpy(lastTaskId, activeTaskId, sizeof(lastTaskId) - 1);
+  lastTaskId[sizeof(lastTaskId) - 1] = 0;
+  clearTask();
 }
 
 void startBusinessTask(const char *taskId, Action nextAction, const SlotConfig &slot) {
@@ -606,11 +629,11 @@ void startBusinessTask(const char *taskId, Action nextAction, const SlotConfig &
   machineState = MachineState::BUSY;
   sendAck(taskId, true);
   if (nextAction == Action::FETCH) {
-    sendEvent("E_CLEAR", "\"e_clear\":true,\"e_um\":0");
+    sendEvent("E_CLEAR", "\"motion_complete\":true,\"e_clear_commanded\":true,\"e_target_um\":0");
     sendEvent("MOVING_TO_SLOT", "\"axis\":\"X\"");
     stage = Stage::FETCH_MOVE_SLOT;
   } else {
-    sendEvent("TRANSFER_READY", "\"motion_complete\":true,\"e_clear\":true");
+    sendEvent("TRANSFER_READY", "\"motion_complete\":true,\"e_clear_commanded\":true");
     sendEvent("MOVING_TO_SLOT", "\"axis\":\"X\"");
     stage = Stage::RETURN_MOVE_HOOKED_SLOT;
   }
@@ -622,6 +645,7 @@ void handleCommand(const char *json) {
   long version = 0;
   char type[20] = "";
   char requestId[65] = "";
+  char hostSessionId[65] = "";
   if (!jsonInt(json, "v", version) || version != PROTOCOL_VERSION) {
     sendAck("invalid", false, "PROTOCOL_VERSION");
     return;
@@ -630,8 +654,15 @@ void handleCommand(const char *json) {
     sendAck("invalid", false, "INVALID_MESSAGE");
     return;
   }
+  const bool validHostSession = jsonString(json, "host_session_id", hostSessionId,
+                                           sizeof(hostSessionId)) &&
+                                validId(hostSessionId);
   jsonString(json, "request_id", requestId, sizeof(requestId));
   if (!strcmp(type, "hello") || !strcmp(type, "status")) {
+    if ((action == Action::FETCH || action == Action::RETURN_BOX) &&
+        validHostSession && !strcmp(hostSessionId, activeHostSessionId)) {
+      lastHostContactMs = millis();
+    }
     if (requestId[0] && !validId(requestId)) strcpy(requestId, "invalid");
     sendStatus(type, requestId);
     return;
@@ -656,7 +687,8 @@ void handleCommand(const char *json) {
 
   char taskId[65] = "";
   char command[20] = "";
-  if (!jsonString(json, "task_id", taskId, sizeof(taskId)) || !validId(taskId) ||
+  if (!validHostSession ||
+      !jsonString(json, "task_id", taskId, sizeof(taskId)) || !validId(taskId) ||
       !jsonString(json, "cmd", command, sizeof(command))) {
     sendAck(taskId[0] ? taskId : "invalid", false, "INVALID_MESSAGE");
     return;
@@ -671,9 +703,28 @@ void handleCommand(const char *json) {
     sendAck(taskId, false, "CONFIG_VERSION");
     return;
   }
+  char calibrationId[80] = "";
+  if (!jsonString(json, "calibration_id", calibrationId, sizeof(calibrationId)) ||
+      strcmp(calibrationId, CALIBRATION_ID)) {
+    sendAck(taskId, false, "CALIBRATION_ID");
+    return;
+  }
   if (!motionConfigured()) {
     machineState = MachineState::CONFIG_LOCKED;
     sendAck(taskId, false, "CONFIG_LOCKED");
+    return;
+  }
+  if (!strcmp(command, "RECOVER")) {
+    bool confirmedAllStored = false, clear = false;
+    if (!jsonBool(json, "confirmed_all_stored", confirmedAllStored) || !confirmedAllStored ||
+        !jsonBool(json, "area_clear", clear) || !clear) {
+      sendAck(taskId, false, "MANUAL_RECOVERY_CONFIRMATION_REQUIRED");
+      return;
+    }
+    strncpy(activeHostSessionId, hostSessionId, sizeof(activeHostSessionId) - 1);
+    activeHostSessionId[sizeof(activeHostSessionId) - 1] = 0;
+    lastHostContactMs = millis();
+    startRecovery(taskId);
     return;
   }
   if (!strcmp(command, "REFERENCE")) {
@@ -684,6 +735,9 @@ void handleCommand(const char *json) {
       return;
     }
     if (presentedSlotId[0]) { sendAck(taskId, false, "BOX_ALREADY_PRESENTED"); return; }
+    strncpy(activeHostSessionId, hostSessionId, sizeof(activeHostSessionId) - 1);
+    activeHostSessionId[sizeof(activeHostSessionId) - 1] = 0;
+    lastHostContactMs = millis();
     startReference(taskId);
     return;
   }
@@ -716,6 +770,9 @@ void handleCommand(const char *json) {
       sendAck(taskId, false, "BOX_ALREADY_PRESENTED");
       return;
     }
+    strncpy(activeHostSessionId, hostSessionId, sizeof(activeHostSessionId) - 1);
+    activeHostSessionId[sizeof(activeHostSessionId) - 1] = 0;
+    lastHostContactMs = millis();
     startBusinessTask(taskId, Action::FETCH, *slot);
     return;
   }
@@ -724,6 +781,9 @@ void handleCommand(const char *json) {
       sendAck(taskId, false, "PRESENTED_SLOT_MISMATCH");
       return;
     }
+    strncpy(activeHostSessionId, hostSessionId, sizeof(activeHostSessionId) - 1);
+    activeHostSessionId[sizeof(activeHostSessionId) - 1] = 0;
+    lastHostContactMs = millis();
     startBusinessTask(taskId, Action::RETURN_BOX, *slot);
     return;
   }
@@ -731,6 +791,11 @@ void handleCommand(const char *json) {
 }
 
 void tickMotion() {
+  if ((action == Action::FETCH || action == Action::RETURN_BOX) &&
+      static_cast<uint32_t>(millis() - lastHostContactMs) > HOST_LEASE_MS) {
+    failTask("HOST_HEARTBEAT_TIMEOUT");
+    return;
+  }
   if (xMotion.active) {
     if (uint32_t(millis() - xMotion.startedAtMs) > xMotion.timeoutMs) {
       if (action == Action::MANUAL) stopManualMotion("TIMEOUT");

@@ -20,16 +20,16 @@
 | `READY` | 原点有效，空闲 | 业务命令、查询、停止 |
 | `PRESENTED` | 一个料盒位于左侧取物口 | 只允许对应格口的 `RETURN`、查询、停止 |
 | `BUSY` | 正在执行任务 | 查询、停止 |
-| `RECOVERY_REQUIRED` | 停止、超时、通信异常或动作未完整结束 | 查询、停止；断电检查后重新人工置零 |
+| `RECOVERY_REQUIRED` | 停止、超时、通信异常或动作未完整结束 | 查询、停止、人工确认后的 `RECOVER` |
 
-控制器上电绝不自动运动。当前机构没有限位开关，因此 `REFERENCE` 不是自动回零：操作员必须先断开运动、把 X 平台放到左侧取物原点、把 E 轴置于完全收回位置并清空运动区域，再在页面中确认。
+控制器上电绝不自动运动。当前机构没有限位开关，因此 `REFERENCE` 不是自动回零：操作员必须先断开运动、把 X 平台放到左侧取物原点、把 E 轴置于完全收回位置、把所有料盒放回对应柜格并清空运动区域，再在页面中确认。ESP32 由 USB 独立供电，无法检测 12 V 电机电源中断；12 V 只要断过或重新上电，现有原点就必须视为无效，人工恢复并重新执行 `REFERENCE`。
 
 ## 主机发往 ESP32-S3
 
 ### 握手
 
 ```json
-{"v":1,"type":"hello","request_id":"boot-01"}
+{"v":1,"type":"hello","request_id":"boot-01","host_session_id":"host-01"}
 ```
 
 控制器返回同一 `request_id` 的 `hello`。本机只有在节点、协议号和固件信息均有效后才显示“控制器已验证”。
@@ -37,13 +37,13 @@
 ### 查询状态
 
 ```json
-{"v":1,"type":"status","request_id":"status-01"}
+{"v":1,"type":"status","request_id":"status-01","host_session_id":"host-01"}
 ```
 
 ### 人工建立原点
 
 ```json
-{"v":1,"type":"command","task_id":"task-ref-01","cmd":"REFERENCE","config_version":5,"manual_reference_confirmed":true,"area_clear":true}
+{"v":1,"type":"command","task_id":"task-ref-01","cmd":"REFERENCE","config_version":6,"calibration_id":"sha256:cc1c95986974daccbf755497cff7d538567dadf5f3a38973d9f94a4cfc739ef8","host_session_id":"host-01","manual_reference_confirmed":true,"area_clear":true}
 ```
 
 控制器不执行电机动作，只把当前位置登记为 `X=0 mm`、`E=0 mm`。缺少两个确认字段时必须拒绝。
@@ -51,14 +51,22 @@
 ### 取件
 
 ```json
-{"v":1,"type":"command","task_id":"task-fetch-01","cmd":"FETCH","slot_id":"S01","config_version":5,"area_clear":true}
+{"v":1,"type":"command","task_id":"task-fetch-01","cmd":"FETCH","slot_id":"S01","config_version":6,"calibration_id":"sha256:cc1c95986974daccbf755497cff7d538567dadf5f3a38973d9f94a4cfc739ef8","host_session_id":"host-01","area_clear":true}
 ```
 
 ### 回件
 
 ```json
-{"v":1,"type":"command","task_id":"task-return-01","cmd":"RETURN","slot_id":"S01","config_version":5,"area_clear":true}
+{"v":1,"type":"command","task_id":"task-return-01","cmd":"RETURN","slot_id":"S01","config_version":6,"calibration_id":"sha256:cc1c95986974daccbf755497cff7d538567dadf5f3a38973d9f94a4cfc739ef8","host_session_id":"host-01","area_clear":true}
 ```
+
+### 人工恢复
+
+```json
+{"v":1,"type":"command","task_id":"task-recover-01","cmd":"RECOVER","config_version":6,"calibration_id":"sha256:cc1c95986974daccbf755497cff7d538567dadf5f3a38973d9f94a4cfc739ef8","host_session_id":"host-01","confirmed_all_stored":true,"area_clear":true}
+```
+
+`RECOVER` 不产生运动，只关闭输出、清除板内取物口关联和坐标，并进入 `UNREFERENCED`。后台只有收到成功结果后才把 SQLite 盒位恢复为 `STORED`；随后仍需单独执行 `REFERENCE`。
 
 ### 停止
 
@@ -66,14 +74,14 @@
 {"v":1,"type":"stop","task_id":"task-fetch-01"}
 ```
 
-本机服务同时发送单字节 `!`，不等待一整行 JSON 被解析。网页停止按钮只是软件停止请求，实体设备仍应设置独立断电急停。
+本机服务同时发送单字节 `!`，不等待一整行 JSON 被解析。网页停止按钮只是软件停止请求；当前实物没有实体急停，操作者必须始终能直接切断 12V 电机电源。
 
 ## ESP32-S3 发往主机
 
 ### 握手与状态
 
 ```json
-{"v":1,"type":"hello","request_id":"boot-01","protocol":"partgo-serial-v1","node":"ESP32-S3","firmware":"PARTGO-CONTROLLER-2.0.1","state":"CONFIG_LOCKED","motion_configured":false,"referenced":false,"busy":false,"config_version":5,"layout":{"rows":2,"columns":2,"has_y_axis":false},"calibration":{"x_pulse_per_mm":20000,"e_pulse_per_mm":5.1020,"e_scale_numerator":250,"e_scale_denominator":49,"e_driver_microsteps":1,"e_dock_um":48000,"x_hook_shift_um":4500},"slots":[{"id":"S01","enabled":true,"calibrated":false},{"id":"S02","enabled":true,"calibrated":false},{"id":"S03","enabled":false,"calibrated":false},{"id":"S04","enabled":false,"calibrated":false}]}
+{"v":1,"type":"hello","request_id":"boot-01","protocol":"partgo-serial-v1","node":"ESP32-S3","firmware":"PARTGO-CONTROLLER-2.1.0","state":"UNREFERENCED","motion_configured":true,"referenced":false,"busy":false,"config_version":6,"calibration_id":"sha256:cc1c95986974daccbf755497cff7d538567dadf5f3a38973d9f94a4cfc739ef8","presented_slot_id":null,"layout":{"rows":2,"columns":2,"has_y_axis":false},"calibration":{"x_pulse_per_mm":20000,"e_pulse_per_mm":5.1020,"e_scale_numerator":250,"e_scale_denominator":49,"e_driver_microsteps":1,"e_dock_um":48000,"x_hook_shift_um":5200},"slots":[{"id":"S01","enabled":true,"calibrated":true},{"id":"S02","enabled":true,"calibrated":true},{"id":"S03","enabled":false,"calibrated":false},{"id":"S04","enabled":false,"calibrated":false}]}
 ```
 
 `status` 响应字段相同，只把 `type` 改为 `status`。`motion_configured=false` 时，本机页面显示“待标定”，并禁用自动取还件。
@@ -92,12 +100,12 @@
 {"v":1,"type":"ack","task_id":"task-fetch-01","accepted":false,"error":"CONFIG_LOCKED"}
 ```
 
-常见错误码：`INVALID_MESSAGE`、`PROTOCOL_VERSION`、`CONFIG_VERSION`、`CONFIG_LOCKED`、`REFERENCE_REQUIRED`、`E_CLEAR_REQUIRED`、`E_POSITION_UNKNOWN`、`E_AXIS_START_FAILED`、`E_MOTION_TIMEOUT`、`BUSY`、`UNKNOWN_SLOT`、`SLOT_DISABLED`、`Y_AXIS_REQUIRED`、`AREA_NOT_CLEAR`、`MANUAL_REFERENCE_REQUIRED`、`DUPLICATE_TASK_ID`。
+常见错误码：`INVALID_MESSAGE`、`PROTOCOL_VERSION`、`CONFIG_VERSION`、`CALIBRATION_ID`、`CONFIG_LOCKED`、`REFERENCE_REQUIRED`、`E_CLEAR_REQUIRED`、`E_POSITION_UNKNOWN`、`E_AXIS_START_FAILED`、`E_MOTION_TIMEOUT`、`HOST_HEARTBEAT_TIMEOUT`、`BUSY`、`UNKNOWN_SLOT`、`SLOT_DISABLED`、`Y_AXIS_REQUIRED`、`AREA_NOT_CLEAR`、`MANUAL_REFERENCE_REQUIRED`、`MANUAL_RECOVERY_CONFIRMATION_REQUIRED`、`DUPLICATE_TASK_ID`。
 
 ### 阶段事件
 
 ```json
-{"v":1,"type":"event","task_id":"task-fetch-01","seq":3,"phase":"SLOT_REACHED","sensors":{"slot_id":"S01","x_in_position":true,"evidence":"open_loop_pulse_count"}}
+{"v":1,"type":"event","task_id":"task-fetch-01","seq":3,"phase":"SLOT_REACHED","sensors":{"slot_id":"S01","motion_complete":true,"x_target_um":29800,"evidence":"open_loop_pulse_count"}}
 ```
 
 当前硬件没有限位开关、编码器和盒体传感器，因此 `sensors` 字段描述的是开环脉冲计数结果，不能伪装成真实传感器。后端只在完整收到所有阶段后进入“待人工确认”；盒子位置由操作员确认后才写入库存状态。
@@ -108,12 +116,12 @@
 - `FETCH`：`E_CLEAR` → `MOVING_TO_SLOT` → `SLOT_REACHED` → `DOCKING` → `DOCK_REACHED` → `HOOK_SHIFTING` → `HOOK_ENGAGED` → `PULLING` → `EXTRACTION_REACHED` → `TRANSFER_READY` → `MOVING_TO_PICKUP` → `PICKUP_REACHED`
 - `RETURN`：`TRANSFER_READY` → `MOVING_TO_SLOT` → `SLOT_REACHED` → `PUSHING` → `INSERTION_REACHED` → `UNHOOKING` → `HOOK_RELEASED` → `RETRACTING` → `E_CLEAR` → `MOVING_TO_PICKUP` → `PICKUP_REACHED`
 
-机械动作固定为：取件时到达格口基准坐标，E 伸出 `48 mm`，X 向右 `4.5 mm` 挂住盒子，E 回缩 `48 mm`，再回到左侧取物区。回件执行逆序动作：到达格口右偏 `4.5 mm` 的坐标，E 伸出 `48 mm`，X 向左 `4.5 mm` 释放盒子，E 回缩后返回取物区。
+机械动作固定为：取件时到达格口基准坐标，E 伸出 `48 mm`，X 向右 `5.2 mm` 挂住盒子，E 回缩 `48 mm`，再回到左侧取物区。回件执行逆序动作：到达格口右偏 `5.2 mm` 的坐标，E 伸出 `48 mm`，X 向左 `5.2 mm` 释放盒子，E 回缩后返回取物区。
 
 ### 最终结果
 
 ```json
-{"v":1,"type":"result","task_id":"task-fetch-01","success":true,"state":"READY"}
+{"v":1,"type":"result","task_id":"task-fetch-01","success":true,"state":"PRESENTED"}
 ```
 
 ```json
@@ -128,5 +136,7 @@
 
 - 本机数据库用 `request_id` 防止网页重复提交。
 - 控制器同一时刻只接受一个 `task_id`；重复或冲突 ID 被拒绝。
+- 运动命令同时校验结构版本和完整标定指纹；任一不一致都在产生脉冲前拒绝。
+- 任务期间主机每 500 ms 查询状态，固件只接受同一 `host_session_id` 续租；2秒没有有效心跳即停止并进入恢复状态。主机1.5秒收不到任何回程状态也会停止续租并发送 `!`。
 - 执行中串口断开、服务超时或 ESP32 重启时，后端把盒位标为未知并进入恢复状态，不自动重放任务。
 - 任务成功只说明预定脉冲序列完整结束。是否真正抓住、抽出或归位零件盒，仍由操作员确认。

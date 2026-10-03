@@ -3,7 +3,7 @@ setlocal
 chcp 65001 >nul
 cd /d "%~dp0"
 
-set "PARTGO_PORT=COM12"
+set "PARTGO_PORT=COM9"
 if not "%~1"=="" if /I not "%~1"=="--check" set "PARTGO_PORT=%~1"
 
 if /I "%~1"=="--check" (

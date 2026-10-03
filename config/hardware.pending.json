@@ -1,9 +1,9 @@
 {
-  "status": "draft_not_enabled",
+  "status": "archived_diagnostics_not_loaded",
   "motion_enabled": false,
   "controller": "ESP32-S3-N16R8",
   "board_pinout_verified": false,
-  "note": "Calibration worksheet only. Neither server nor automatic firmware loads this file for motion.",
+  "note": "Historical diagnostic worksheet plus confirmed hardware facts. It is never loaded for motion; config/motion-calibration.json and machine_calibration.h are the production sources of truth.",
   "axes": {
     "X": {
       "driver": "PD42S1 PLC-TTL STEP/DIR",
@@ -25,12 +25,12 @@
       "nominal_travel_mm": 250,
       "measured_usable_travel_mm": null,
       "positive_direction_level": "HIGH_moves_right",
-      "pickup_coordinate_mm": null,
+      "pickup_coordinate_mm": 0,
       "slot_align_coordinates_mm": {
-        "S01": null,
-        "S02": null
+        "S01": 29.8,
+        "S02": 105
       },
-      "hook_engage_shift_mm": null,
+      "hook_engage_shift_mm": 5.2,
       "manual_reference": "left_pickup_station_mark",
       "jog_start_pulse_rate_hz": 20000,
       "jog_peak_pulse_rate_hz": 58823,
@@ -53,25 +53,29 @@
       "motor_origin": "salvaged_from_Samsung_optical_drive",
       "step_angle_degrees": null,
       "full_steps_per_motor_revolution": null,
-      "microsteps": 16,
+      "microsteps": 1,
       "microstep_pin_target": {
-        "MS1_v": 3.3,
-        "MS2_v": 3.3,
-        "MS3_v": 3.3
+        "MS1_v": 0,
+        "MS2_v": 0,
+        "MS3_v": 0
       },
       "microstep_pin_observed": {
         "before_rewire_v": [0, 0, 0],
-        "after_rewire_v": [3.3, 3.3, 3.3]
+        "final_v": [0, 0, 0]
       },
       "gearbox_ratio_motor_to_output": 1,
       "leadscrew_marking": "T4",
       "lead_mm_per_output_revolution": null,
       "pulses_per_motor_revolution": null,
       "pulses_per_output_revolution": null,
-      "pulses_per_mm": null,
+      "pulses_per_mm": 5.10204081632653,
+      "scale_numerator": 250,
+      "scale_divisor": 49,
       "nominal_travel_mm": 50,
-      "measured_usable_travel_mm": null,
-      "positive_direction_level": "HIGH_retracts_axis",
+      "measured_usable_travel_mm": 51,
+      "automatic_dock_travel_mm": 48,
+      "mechanical_margin_mm": 3,
+      "positive_direction_level": "HIGH_extends_axis",
       "manual_reference": "fully_retracted_clear_position_mark",
       "jog_pulse_rate_hz": 300,
       "motor_rated_current_a": null,
@@ -100,8 +104,12 @@
         "unloaded_motor_result": "still_shakes",
         "next_test": "full_step_mode_with_MS1_MS2_MS3_grounded_then_known_good_A4988_cross_check_if_needed"
       },
-      "calibration_mode": "raw_pulses_max_320_per_arm_pending_full_step_diagnosis",
-      "scale_source": "unknown_requires_measurement"
+      "calibration_mode": "full_step_MS1_MS2_MS3_grounded",
+      "loaded_scale_measurement": {
+        "commanded_pulses": 100,
+        "measured_distance_mm": 19.6
+      },
+      "scale_source": "measured_under_load_100_pulses_over_19.6mm"
     }
   },
   "limits": {
@@ -109,7 +117,10 @@
     "automatic_homing_available": false,
     "reference_method": "power_off_manual_alignment_to_physical_marks_then_operator_confirmed_zero",
     "reference_valid_until": "controller_reset_motor_power_loss_stall_or_manual_axis_movement",
-    "soft_limits_mm": null
+    "soft_limits_mm": {
+      "X": [0, 250],
+      "E": [0, 51]
+    }
   },
   "pickup_location": "left_side_fixed_station"
 }

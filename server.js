@@ -1,9 +1,9 @@
 import http from 'node:http';
 import { readFile, mkdir } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve, dirname, extname, basename, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { Cabinet, AppError } from './lib/cabinet.js';
 import { SimulatedDevice, UsbSerialDevice } from './lib/device.js';
@@ -14,6 +14,26 @@ const publicRoot = resolve(root, 'public');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg', '.png': 'image/png', '.woff2': 'font/woff2' };
+
+export function calibrationFingerprint(data) {
+  const x = data?.x || {};
+  const e = data?.e || {};
+  const slots = data?.slots || {};
+  const motion = {
+    e_dir_high_motion: e.dir_high_motion,
+    e_dock_um: Math.round(e.dock_mm * 1000),
+    e_driver_microsteps: e.driver_microsteps,
+    e_scale_divisor: e.scale_divisor,
+    e_scale_numerator: e.pulses_per_mm,
+    s01_x_um: Math.round(slots.S01?.x_mm * 1000),
+    s02_x_um: Math.round(slots.S02?.x_mm * 1000),
+    schema: 1,
+    x_dir_high_motion: x.dir_high_motion,
+    x_hook_shift_um: Math.round(x.hook_shift_mm * 1000),
+    x_pulses_per_mm: x.pulses_per_mm,
+  };
+  return `sha256:${createHash('sha256').update(JSON.stringify(motion), 'ascii').digest('hex')}`;
+}
 
 async function readBody(req, limit) {
   const chunks = [];
@@ -148,7 +168,7 @@ export function createServer(cabinet) {
           action: 'HOME', request_id: body.request_id, area_clear: body.area_clear,
           manual_reference_confirmed: body.manual_reference_confirmed }));
         if (path === '/api/device/stop') return json(200, cabinet.stop());
-        if (path === '/api/device/recover') return json(200, cabinet.recoverHardware(body));
+        if (path === '/api/device/recover') return json(200, await cabinet.recoverHardware(body));
         if (path === '/api/simulation/reset') return json(200, cabinet.resetSimulation(body));
       }
       throw new AppError('接口不存在', 404);
@@ -169,7 +189,12 @@ function runtimeDevice() {
     python: process.env.PARTGO_PYTHON,
     bridgePath: resolve(root, 'scripts/serial_bridge.py'),
   });
-  const device = new UsbSerialDevice(transport);
+  const calibration = JSON.parse(readFileSync(resolve(root, 'config/motion-calibration.json'), 'utf8'));
+  const expectedCalibrationId = calibrationFingerprint(calibration);
+  if (calibration.calibration_id !== expectedCalibrationId) {
+    throw new Error('本机标定配置的 calibration_id 与运动参数不一致，请先通过标定台重新写入配置');
+  }
+  const device = new UsbSerialDevice(transport, { expectedCalibrationId });
   device.start();
   return device;
 }

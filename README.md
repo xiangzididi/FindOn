@@ -1,6 +1,6 @@
 # PartGo · 桌面智能零件调度系统
 
-PartGo 是桌面二维抽屉阵列式零件柜的 48 小时演示项目。电脑上的本地服务管理零件名称、盒位和任务历史，通过 USB 串口向 ESP32-S3 发送 `REFERENCE / FETCH / RETURN / STOP` 业务命令；ESP32-S3 控制 PD42S1 X 轴和 A4988 E 轴完成选格与抽盒。
+PartGo 是桌面二维抽屉阵列式零件柜的 48 小时演示项目。电脑上的本地服务管理零件名称、盒位和任务历史，通过 USB 串口向 ESP32-S3 发送 `REFERENCE / FETCH / RETURN / STOP / RECOVER` 业务命令；ESP32-S3 控制 PD42S1 X 轴和 A4988 E 轴完成选格与抽盒。
 
 当前演示配置启用同一层的 `S01/B01`、`S02/B02`，界面同时显示第二层 `S03/S04` 扩展位。加入 Y 轴并标定之前，第二层明确显示为不可用。
 
@@ -18,7 +18,7 @@ PartGo 是桌面二维抽屉阵列式零件柜的 48 小时演示项目。电脑
 要求 Node.js 24 或更新版本。前端无需构建，也无需安装 npm 包。
 
 ```powershell
-cd D:\ProgramStudy\Geek\Hackathon1st
+cd D:\Hackathon1st\Hackathon1st
 node server.js
 ```
 
@@ -34,25 +34,25 @@ node server.js
 
 ## USB 串口模式
 
-Windows 下可直接双击项目根目录的 `启动管理系统.bat`。它会关闭旧的 PartGo 服务、释放 COM12、启动管理后台并在服务就绪后打开浏览器。双击 `启动标定台.bat` 可切换到标定台；两个启动器默认使用 COM12，也可在命令行把其他串口作为第一个参数传入。
+Windows 下可直接双击项目根目录的 `启动管理系统.bat`。它只会关闭由本项目启动、身份核验一致且已确认空闲的旧进程；存在运动、待确认盒子、待恢复状态或无法读取旧服务状态时，会拒绝强制切换。如果 `COM9` 被其他程序占用，也会明确报错而不会结束未知进程。双击 `启动标定台.bat` 可切换到标定台；两个启动器默认使用 `COM9`，也可在命令行把其他串口作为第一个参数传入。
 
 Python 只用于打开串口和解析 Excel：
 
 ```powershell
 python -m pip install -r requirements.txt
-.\start-hardware.ps1 -Port COM12
+.\start-hardware.ps1 -Port COM9
 ```
 
 也可直接设置环境变量：
 
 ```powershell
 $env:PARTGO_DEVICE_MODE = "hardware"
-$env:PARTGO_SERIAL_PORT = "COM12"
+$env:PARTGO_SERIAL_PORT = "COM9"
 $env:PARTGO_SERIAL_BAUD = "115200"
 node server.js
 ```
 
-服务会自动重连，但只有收到 `partgo-serial-v1` 的 ESP32-S3 握手后才显示“已验证”。旧的轴测试固件会显示未验证，不会被当成最终控制器。
+服务会自动重连，但只有同时通过 `partgo-serial-v1` 握手、配置版本和标定指纹校验后才允许运动。旧轴测试固件、旧业务固件或参数不一致的固件只显示诊断状态，不会被当成可用控制器。任务进行时，主机每 500 ms 续租；控制器连续 2 s 收不到同一主机会话的心跳就停止输出并将任务判为失败。
 
 ## 固件
 
@@ -66,25 +66,25 @@ $pio = "$env:USERPROFILE\.platformio\penv\Scripts\platformio.exe"
 & $pio run -d .\firmware\esp32s3_controller
 ```
 
-最终固件的机械参数已经完整：X 比例为 `20000 pulse/mm`，E 根据“100 脉冲 = 19.6 mm”采用 `250/49 pulse/mm`（约 `5.1020 pulse/mm`），48 mm 对接行程发送 245 个全步脉冲。取盒挂钩横移为向右 `4.5 mm`，`S01/S02` X 坐标分别为 `30.5 mm / 104.5 mm`。编译后的控制器不再处于 `CONFIG_LOCKED`，但每次上电仍必须人工确认 X/E 原点后才接受取回任务。完整协议见 [USB 串口协议 v1](docs/serial-protocol-v1.md)。
+最终固件的机械参数已经完整：X 比例为 `20000 pulse/mm`，E 根据带载实测“100 脉冲 = 19.6 mm”采用 `250/49 pulse/mm`（约 `5.1020 pulse/mm`）；48 mm 对接行程发送 245 个全步脉冲，相对 51 mm 实测可用行程保留约 3 mm 机械余量。`S01/S02` 的格口对位坐标分别为 `29.8 mm / 105 mm`，挂取动作再向右横移 `5.2 mm`。编译后的控制器不再处于 `CONFIG_LOCKED`，但每次上电仍必须把 X 放在最左侧取物处、E 完全回缩并由操作员确认原点后，才接受取回任务。完整协议见 [USB 串口协议 v1](docs/serial-protocol-v1.md)。
 
 ## 本地标定台
 
-先烧录 `esp32s3_axis_test` 测试固件，把 X/E 滑块放在行程中间并打开电机电源。标定工具默认连接 `COM12`：
+需要重新标定时，先烧录 `esp32s3_axis_test` 测试固件，把 X/E 滑块放在行程中间并打开电机电源。标定工具默认连接 `COM9`：
 
 ```powershell
-.\start-calibration.ps1 -Port COM12
+.\start-calibration.ps1 -Port COM9
 ```
 
 打开 <http://127.0.0.1:3212>。工具每次只发送一次 `ARM` 和一次有限运动，不提供连续转动；X 单次限制为 1–20 mm，E 在当前全步模式下单次限制为 1–100 脉冲。运动完成后填入卡尺实测距离，工具按当前实测比例换算标定基准。随后录入 E 对接行程、S01/S02 相对取物区的 X 坐标和方向，点击“写入最终固件配置”。
 
-标定结果保存到 `config/motion-calibration.json`，同时生成 `firmware/esp32s3_controller/src/machine_calibration.h`。缺少任何必需参数时不会写入，最终固件继续保持 `CONFIG_LOCKED`。无硬件时可验证界面：
+标定结果保存到 `config/motion-calibration.json`，同时生成 `firmware/esp32s3_controller/src/machine_calibration.h`。两者包含同一份安全参数指纹，上位机启动和控制器握手都会核对。缺少任何必需参数时不会写入，最终固件继续保持 `CONFIG_LOCKED`。无硬件时可验证界面：
 
 ```powershell
 .\start-calibration.ps1 -Simulate
 ```
 
-模拟模式会生成虚拟回执，不能作为实机标定结果。
+模拟模式会生成虚拟回执，不能作为实机标定结果，也不能写入或覆盖生产标定文件。
 
 ## 验证
 
@@ -96,7 +96,7 @@ node --check lib/device.js
 node --check lib/serial-transport.js
 node --check public/app.js
 node --check calibration/app.js
-& "$env:USERPROFILE\.platformio\penv\Scripts\python.exe" -m unittest test/test_calibration.py
+& "$env:USERPROFILE\.platformio\penv\Scripts\python.exe" -m unittest discover -s test -p "test_*.py"
 ```
 
 固件验证：
@@ -105,7 +105,7 @@ node --check calibration/app.js
 & "$env:USERPROFILE\.platformio\penv\Scripts\platformio.exe" run -d .\firmware\esp32s3_controller
 ```
 
-自动化测试覆盖完整取回闭环、任务互斥与幂等、阶段顺序、人工盒位确认、故障/停止/超时、重启恢复、USB 握手、串口分片、HTTP 接口和数据库持久化。
+自动化测试覆盖完整取回闭环、任务互斥与幂等、阶段顺序、人工盒位确认、故障/停止/超时、重启恢复、USB 握手、固件版本与标定指纹、任务心跳、受控恢复、串口分片与断线、HTTP 接口和数据库持久化。
 
 ## 目录
 
@@ -144,4 +144,4 @@ test/cabinet.test.js              状态机、串口与 HTTP 测试
 | `POST` | `/api/simulation/reset` | 仅模拟模式恢复初始状态 |
 | `POST` | `/api/bom/import` | 本地解析 BOM 文件，最大 5 MB |
 
-软件停止不能代替实体断电急停。没有限位开关时，断线、停止或动作不完整都必须先检查机械位置，再执行人工恢复和原点确认。
+软件停止不能代替实体断电急停。当前设备没有实体急停和限位开关，调试时必须有人全程看护，并确保能立即切断 12 V 电机电源。ESP32 由 USB 独立供电，无法感知 12 V 是否断过；所以断线、停止、控制器复位、12 V 断电/重上电或动作不完整后，都必须先检查机械位置，再执行人工恢复和原点确认。

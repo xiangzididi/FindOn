@@ -154,7 +154,7 @@
     <form method="dialog"><div class="dialog-head"><div><div class="dialog-code">HARDWARE LIBRARY</div><h2>硬件库与格口</h2></div><button class="dialog-close" value="close" aria-label="关闭">×</button></div><p>修改启用格口的物品名称和别名。保存后由本机数据库持久化。</p><div class="inventory-editor" id="inventoryEditor"></div><div class="dialog-actions"><small>仅可在设备空闲时修改</small><button class="primary-button" id="saveInventoryButton" type="button">保存并重新校验</button></div></form>
   </dialog>
   <dialog class="info-dialog" id="referenceDialog">
-    <form id="referenceForm"><div class="dialog-head"><div><div class="dialog-code">MANUAL REFERENCE</div><h2>人工确认机械原点</h2></div><button class="dialog-close" id="closeReference" type="button" aria-label="关闭">×</button></div><p>当前没有行程开关。请先停止机构，把 X 平台置于最左侧取物区、E 轴完全收回，并确认所有料盒都在已知位置。</p><label class="motion-confirm"><input id="referenceConfirmed" type="checkbox" required />X/E 已在规定原点，运动范围内无人且无障碍</label><div class="dialog-actions"><small>确认只建立坐标，不会驱动电机</small><button class="primary-button" type="submit">登记为原点</button></div></form>
+    <form id="referenceForm"><div class="dialog-head"><div><div class="dialog-code">MANUAL REFERENCE</div><h2>人工确认机械原点</h2></div><button class="dialog-close" id="closeReference" type="button" aria-label="关闭">×</button></div><p>当前没有行程开关。请先停止机构，把 X 平台置于最左侧取物区、E 轴完全收回，并把所有料盒人工放回各自柜格。12V 电机电源只要断过或重新上电，也必须重新执行本流程。</p><label class="motion-confirm"><input id="referenceConfirmed" type="checkbox" required />X/E 已在规定原点、所有料盒已在对应柜格，且运动范围内无人无障碍</label><div class="dialog-actions"><small>确认只清除旧状态并建立坐标，不会驱动电机</small><button class="primary-button" type="submit">登记为原点</button></div></form>
   </dialog>
   <div class="toast-region" id="toastRegion" aria-live="polite"></div>
   <script src="app.js" type="module"></script>

@@ -11,13 +11,13 @@
   "extraction_driver": "A4988 STEP/DIR",
   "extraction_stroke_nominal_mm": 50,
   "extraction_dock_mm": 48,
-  "hook_shift_right_mm": 4.5,
+  "hook_shift_right_mm": 5.2,
   "selection": "automatic",
   "pickup": "left_side_fixed_station",
   "box_confirmation": "operator",
   "slots": [
-    { "id": "S01", "box_id": "B01", "row": 0, "column": 0, "x_mm": 32, "enabled": true, "name": "M3 螺母", "aliases": ["三毫米螺母", "螺母"] },
-    { "id": "S02", "box_id": "B02", "row": 0, "column": 1, "x_mm": 106, "enabled": true, "name": "M3 螺丝", "aliases": ["三毫米螺丝", "螺丝"] },
+    { "id": "S01", "box_id": "B01", "row": 0, "column": 0, "x_mm": 29.8, "enabled": true, "name": "M3 螺母", "aliases": ["三毫米螺母", "螺母"] },
+    { "id": "S02", "box_id": "B02", "row": 0, "column": 1, "x_mm": 105, "enabled": true, "name": "M3 螺丝", "aliases": ["三毫米螺丝", "螺丝"] },
     { "id": "S03", "box_id": "B03", "row": 1, "column": 0, "enabled": false, "requires_axis": "Y", "name": "扩展格 3", "aliases": [] },
     { "id": "S04", "box_id": "B04", "row": 1, "column": 1, "enabled": false, "requires_axis": "Y", "name": "扩展格 4", "aliases": [] }
   ]

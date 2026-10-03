@@ -73,7 +73,7 @@ E 单次范围为 ±16–±320 个原始脉冲，当前排障速率约 300 pulse
 烧录本测试固件后，可在项目根目录启动本地标定台：
 
 ```powershell
-.\start-calibration.ps1 -Port COM12
+.\start-calibration.ps1 -Port COM9
 ```
 
 打开 <http://127.0.0.1:3212>。网页仍会严格执行本固件的单次解锁和有限运动约束，并从停止回执读取实际发出的脉冲数。录入卡尺测得的绝对距离后，自动计算轴比例；所有参数完整后才可生成最终控制固件的 `machine_calibration.h`。

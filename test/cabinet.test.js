@@ -6,8 +6,8 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { Cabinet } from '../lib/cabinet.js';
-import { SimulatedDevice, JsonLineDevice, UsbSerialDevice } from '../lib/device.js';
-import { createServer } from '../server.js';
+import { CONTROLLER_CONFIG_VERSION, SimulatedDevice, JsonLineDevice, UsbSerialDevice } from '../lib/device.js';
+import { calibrationFingerprint, createServer } from '../server.js';
 
 function create(t, options = {}) {
   const app = new Cabinet(':memory:', { device: new SimulatedDevice({ stepMs: 1 }), ...options });
@@ -18,6 +18,15 @@ async function submit(app, action, box_id = null, extra = {}) {
   await app.running; if (app.getTask(task.id).status === "AWAITING_CONFIRMATION") app.confirmTask(task.id, {confirmed:true}); return app.getTask(task.id);
 }
 const home = app => submit(app, 'HOME');
+
+test('Node 与标定台使用同一组运动参数指纹', () => {
+  assert.equal(calibrationFingerprint({
+    x: { pulses_per_mm: 20000, dir_high_motion: 'RIGHT', hook_shift_mm: 5.2 },
+    e: { pulses_per_mm: 250, scale_divisor: 49, driver_microsteps: 1,
+      dir_high_motion: 'EXTEND', dock_mm: 48 },
+    slots: { S01: { x_mm: 29.8 }, S02: { x_mm: 105 } },
+  }), 'sha256:cc1c95986974daccbf755497cff7d538567dadf5f3a38973d9f94a4cfc739ef8');
+});
 
 test('统一取物区：先完全离柜再左移，回件先回到原格', async t => {
   const app=create(t); await home(app);
@@ -66,7 +75,7 @@ test('横移路径确认缺失时拒绝继续', async t => {
     onEvent({task_id:command.id,seq:1,phase:'E_CLEAR',sensors:{e_clear:false}});
   }}});
   app.deviceState = 'READY';
-  assert.match((await submit(app,'FETCH','B01')).error,/未确认让开/);
+    assert.match((await submit(app,'FETCH','B01')).error,/让开动作证据不足/);
   assert.equal(app.deviceState,'RECOVERY_REQUIRED');
 });
 
@@ -94,6 +103,7 @@ test('完整取回闭环仅在完成回执后更新位置', async t => {
   app.confirmTask(task.id, {confirmed:true});
   assert.equal(app.getTask(task.id).status, 'SUCCEEDED');
   assert.equal(app.boxes().find(b => b.id === 'B01').state, 'PRESENTED');
+  assert.equal(app.deviceState, 'PRESENTED');
   assert.throws(() => app.submit({ action: 'FETCH', area_clear: true, box_id: 'B02', request_id: 'another' }), /归还/);
   assert.throws(() => app.submit({ action: 'RETURN', box_id: 'B01', request_id: 'unclear' }), /手已离开/);
   assert.equal((await submit(app, 'RETURN', 'B01', { area_clear: true })).status, 'SUCCEEDED');
@@ -228,20 +238,25 @@ class FakeTransport extends EventEmitter {
 
 test('USB 设备先完成协议握手，再发送业务级指令', async () => {
   const transport = new FakeTransport();
-  const device = new UsbSerialDevice(transport, { probeMs: 60000, timeoutMs: 1000 });
+  const calibrationId = `sha256:${'a'.repeat(64)}`;
+  const device = new UsbSerialDevice(transport, { probeMs: 60000, timeoutMs: 1000,
+    expectedCalibrationId: calibrationId });
   device.start();
   assert.equal(JSON.parse(transport.writes[0]).type, 'status');
   transport.emit('data', Buffer.from(`${JSON.stringify({ v: 1, type: 'status', protocol: 'partgo-serial-v1',
     node: 'ESP32-S3', firmware: 'test', state: 'UNREFERENCED', motion_configured: true,
-    referenced: false, config_version: 5, slots: [] })}\n`));
+    referenced: false, config_version: CONTROLLER_CONFIG_VERSION,
+    calibration_id: calibrationId, slots: [] })}\n`));
   assert.equal(device.info().verified, true);
+  assert.equal(device.info().compatible, true);
   const events = [];
   const pending = device.execute({ id: 'T-USB', action: 'HOME', area_clear: true,
     manual_reference_confirmed: true }, event => events.push(event), new AbortController().signal);
   const command = JSON.parse(transport.writes.at(-1));
   assert.equal(command.cmd, 'REFERENCE');
   assert.equal(command.manual_reference_confirmed, true);
-  assert.equal(command.config_version, 5);
+  assert.equal(command.config_version, CONTROLLER_CONFIG_VERSION);
+  assert.equal(command.calibration_id, calibrationId);
   transport.emit('data', Buffer.from('{"v":1,"type":"ack","task_id":"T-USB","accepted":true}\n'));
   transport.emit('data', Buffer.from('{"v":1,"type":"event","task_id":"T-USB","seq":1,"phase":"REFERENCE_ACCEPTED","sensors":{}}\n'));
   transport.emit('data', Buffer.from('{"v":1,"type":"result","task_id":"T-USB","success":true,"state":"READY"}\n'));
@@ -250,16 +265,93 @@ test('USB 设备先完成协议握手，再发送业务级指令', async () => {
   device.close();
 });
 
-test('真实设备故障后只有人工确认全部归位才能恢复', t => {
-  const device = { mode: 'hardware', info: () => ({ connected: true, verified: true, motion_configured: true }), close() {} };
+test('USB 握手会拒绝旧配置版本或不同标定指纹', async () => {
+  const expectedCalibrationId = `sha256:${'b'.repeat(64)}`;
+  const transport = new FakeTransport();
+  const device = new UsbSerialDevice(transport, { probeMs: 60000, timeoutMs: 1000,
+    expectedCalibrationId });
+  device.start();
+  transport.emit('data', Buffer.from(`${JSON.stringify({ v: 1, type: 'status',
+    protocol: 'partgo-serial-v1', node: 'ESP32-S3', firmware: 'old', state: 'READY',
+    motion_configured: true, referenced: true, config_version: CONTROLLER_CONFIG_VERSION,
+    calibration_id: `sha256:${'c'.repeat(64)}`, slots: [] })}\n`));
+  assert.equal(device.info().verified, true);
+  assert.equal(device.info().compatible, false);
+  assert.equal(device.info().calibration_match, false);
+  await assert.rejects(device.execute({ id: 'T-MISMATCH', action: 'FETCH', slot_id: 'S01' },
+    () => {}, new AbortController().signal), /标定与本机配置不一致/);
+  device.close();
+});
+
+test('USB 任务期间持续心跳，收不到回程状态时快速停止', async () => {
+  const calibrationId = `sha256:${'d'.repeat(64)}`;
+  const transport = new FakeTransport();
+  const device = new UsbSerialDevice(transport, { probeMs: 5, heartbeatAckMs: 20,
+    timeoutMs: 1000, expectedCalibrationId: calibrationId });
+  device.start();
+  transport.emit('data', Buffer.from(`${JSON.stringify({ v: 1, type: 'status',
+    protocol: 'partgo-serial-v1', node: 'ESP32-S3', firmware: 'test', state: 'READY',
+    motion_configured: true, referenced: true, config_version: CONTROLLER_CONFIG_VERSION,
+    calibration_id: calibrationId, slots: [] })}\n`));
+  const pending = device.execute({ id: 'T-HEARTBEAT', action: 'FETCH', slot_id: 'S01',
+    area_clear: true }, () => {}, new AbortController().signal);
+  await assert.rejects(pending, /心跳响应超时/);
+  const parsedWrites = transport.writes.map(line => {
+    try { return JSON.parse(line); } catch { return line; }
+  });
+  assert.ok(parsedWrites.some(message => message?.type === 'status' && message.host_session_id));
+  assert.ok(transport.writes.includes('!\n'));
+  device.close();
+});
+
+test('真实设备故障后先清除控制器状态，再恢复本机盒位记录', async t => {
+  const commands = [];
+  const device = { mode: 'hardware',
+    info: () => ({ connected: true, verified: true, compatible: true,
+      calibration_match: true, motion_configured: true }),
+    async execute(command) { commands.push(command); }, close() {} };
   const app = new Cabinet(':memory:', { device });
   t.after(() => app.close());
   app.db.prepare("UPDATE boxes SET state='UNKNOWN' WHERE id='B01'").run();
   app.deviceState = 'RECOVERY_REQUIRED';
-  assert.throws(() => app.recoverHardware({ confirmed_all_stored: false }), /需要确认/);
-  app.recoverHardware({ confirmed_all_stored: true });
+  await assert.rejects(app.recoverHardware({ confirmed_all_stored: false }), /需要确认/);
+  await assert.rejects(app.recoverHardware({ confirmed_all_stored: true, area_clear: false }), /手已离开/);
+  await app.recoverHardware({ confirmed_all_stored: true, area_clear: true });
+  assert.equal(commands.length, 1);
+  assert.equal(commands[0].action, 'RECOVER');
+  assert.equal(commands[0].confirmed_all_stored, true);
   assert.equal(app.deviceState, 'UNHOMED');
   assert.ok(app.boxes().every(box => box.state === 'STORED'));
+});
+
+test('控制器原点失效时在写入 IN_TRANSIT 前拒绝业务任务', t => {
+  const device = { mode: 'hardware', info: () => ({ connected: true, verified: true,
+    compatible: true, calibration_match: true, motion_configured: true,
+    referenced: false, state: 'UNREFERENCED' }), close() {} };
+  const app = new Cabinet(':memory:', { device });
+  t.after(() => app.close());
+  app.deviceState = 'READY';
+  assert.throws(() => app.submit({ action: 'FETCH', box_id: 'B01', area_clear: true,
+    request_id: 'stale-reference' }), /原点已失效/);
+  assert.equal(app.boxes().find(box => box.id === 'B01').state, 'STORED');
+});
+
+test('控制器在 ACK 前明确拒绝时不会把盒位误记为未知', async t => {
+  const device = { mode: 'hardware', info: () => ({ connected: true, verified: true,
+    compatible: true, calibration_match: true, motion_configured: true,
+    referenced: true, state: 'READY' }),
+    async execute() {
+      throw Object.assign(new Error('AREA_NOT_CLEAR'), { motionMayHaveStarted: false });
+    }, close() {} };
+  const app = new Cabinet(':memory:', { device });
+  t.after(() => app.close());
+  app.deviceState = 'READY';
+  const task = app.submit({ action: 'FETCH', box_id: 'B01', area_clear: true,
+    request_id: 'rejected-before-ack' });
+  await app.running;
+  assert.equal(app.getTask(task.id).status, 'FAILED');
+  assert.equal(app.boxes().find(box => box.id === 'B01').state, 'STORED');
+  assert.equal(app.deviceState, 'READY');
 });
 
 test('HTTP 页面、状态、互斥、输入校验与任务接口', async t => {

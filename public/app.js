@@ -112,7 +112,8 @@ function hardwareUsable() {
   const snapshot = state.snapshot;
   if (!snapshot) return false;
   if (snapshot.mode === 'simulation') return true;
-  return snapshot.device?.connected && snapshot.device?.verified && snapshot.device?.motion_configured;
+  return snapshot.device?.connected && snapshot.device?.verified && snapshot.device?.compatible &&
+    snapshot.device?.motion_configured;
 }
 
 function canFetch() {
@@ -160,7 +161,8 @@ function renderDevice() {
   const simulation = snapshot.mode === 'simulation';
   const bridgeOnline = simulation || Boolean(device.connected);
   const verified = simulation || Boolean(device.verified);
-  const configured = simulation || Boolean(device.motion_configured);
+  const compatible = simulation || Boolean(device.compatible);
+  const configured = simulation || Boolean(device.motion_configured && compatible);
   const ready = configured && snapshot.device_state === 'READY';
   const stateName = names[device.state] || names[snapshot.device_state] || device.state || snapshot.device_state;
 
@@ -188,6 +190,12 @@ function renderDevice() {
   } else if (!verified) {
     els.readyStateTitle.textContent = '串口已打开 · 等待协议握手';
     els.devicePill.title = '串口有连接，但没有收到 partgo-serial-v1 握手';
+  } else if (!compatible) {
+    els.readyStateTitle.textContent = device.calibration_match === false
+      ? '控制器在线 · 标定版本不一致' : '控制器在线 · 固件协议版本不一致';
+    els.devicePill.title = device.calibration_match === false
+      ? '必须重新编译、烧录并读回与本机一致的标定指纹'
+      : '必须烧录当前版本控制器固件';
   } else if (!configured) {
     els.readyStateTitle.textContent = '控制器在线 · 尚未完成标定';
     els.devicePill.title = '需要填写 E 轴比例与 S01/S02 的 X 坐标后重新编译固件';
@@ -363,8 +371,10 @@ function renderTask(task) {
   });
   const event = task.events.at(-1);
   const sensors = event?.sensors || {};
-  const xUm = [...task.events].reverse().find(item => Number.isFinite(item.sensors?.x_um))?.sensors.x_um;
-  const eUm = [...task.events].reverse().find(item => Number.isFinite(item.sensors?.e_um))?.sensors.e_um;
+  const xEvent = [...task.events].reverse().find(item => Number.isFinite(item.sensors?.x_um) || Number.isFinite(item.sensors?.x_target_um));
+  const eEvent = [...task.events].reverse().find(item => Number.isFinite(item.sensors?.e_um) || Number.isFinite(item.sensors?.e_target_um));
+  const xUm = xEvent?.sensors.x_um ?? xEvent?.sensors.x_target_um;
+  const eUm = eEvent?.sensors.e_um ?? eEvent?.sensors.e_target_um;
   els.coordX.textContent = Number.isFinite(xUm) ? (xUm / 1000).toFixed(1) : '---';
   els.coordE.textContent = Number.isFinite(eUm) ? (eUm / 1000).toFixed(1) : '---';
   els.traySensor.textContent = sensors.evidence === 'open_loop_pulse_count' ? 'OPEN LOOP' : state.snapshot.mode === 'simulation' ? 'SIMULATED' : 'PENDING';
@@ -602,7 +612,7 @@ async function submitReference(event) {
   try {
     if (state.snapshot.device_state === 'RECOVERY_REQUIRED') {
       if (state.snapshot.mode === 'simulation') await api('/simulation/reset', { confirmed: true });
-      else await api('/device/recover', { confirmed_all_stored: true });
+      else await api('/device/recover', { confirmed_all_stored: true, area_clear: true });
     }
     const task = await api('/device/reference', { request_id: crypto.randomUUID(),
       manual_reference_confirmed: true, area_clear: true });
