@@ -55,7 +55,7 @@ node server.js
 ## 固件
 
 - `firmware/esp32s3_axis_test`：人工标定专用。保留受限点动/脉冲测试，不执行自动任务。
-- `firmware/esp32s3_controller`：最终 USB 业务控制固件。
+- `firmware/esp32s3_controller`：最终 USB 业务控制固件，同时兼容标定台的一次性受限人工移动。
 
 编译最终固件：
 

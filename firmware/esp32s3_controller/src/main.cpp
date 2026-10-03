@@ -11,7 +11,7 @@
 
 namespace {
 
-constexpr char FIRMWARE_VERSION[] = "PARTGO-CONTROLLER-1.1.0";
+constexpr char FIRMWARE_VERSION[] = "PARTGO-CONTROLLER-1.2.0";
 constexpr char PROTOCOL_NAME[] = "partgo-serial-v1";
 constexpr int PROTOCOL_VERSION = 1;
 constexpr int CONFIG_VERSION = 5;
@@ -31,6 +31,8 @@ constexpr uint32_t X_RAMP_PULSES = 2000;
 constexpr uint32_t E_PERIOD_US = 3333;
 constexpr uint32_t MOTION_TIMEOUT_MARGIN_MS = 5000;
 constexpr uint32_t MOTION_TIMEOUT_MAX_MS = 300000;
+constexpr uint32_t MANUAL_ARM_MS = 10000;
+constexpr uint32_t MANUAL_E_MAX_PULSES = 320;
 
 constexpr int32_t X_MIN_UM = 0;
 constexpr int32_t X_MAX_UM = 250000;
@@ -52,7 +54,7 @@ constexpr SlotConfig SLOTS[] = {
 };
 
 enum class MachineState { CONFIG_LOCKED, UNREFERENCED, READY, PRESENTED, BUSY, RECOVERY_REQUIRED };
-enum class Action { NONE, REFERENCE, FETCH, RETURN_BOX };
+enum class Action { NONE, REFERENCE, FETCH, RETURN_BOX, MANUAL };
 enum class Stage : uint8_t {
   NONE,
   FETCH_MOVE_SLOT,
@@ -98,6 +100,8 @@ char lastTaskId[65] = "";
 char inputLine[768];
 size_t inputUsed = 0;
 bool droppingInput = false;
+char manualArmedAxis = 0;
+uint32_t manualArmedAtMs = 0;
 
 const char *stateName(MachineState value) {
   switch (value) {
@@ -237,6 +241,24 @@ void setSafeOutputs() {
   digitalWrite(E_ENABLE_PIN, HIGH);
 }
 
+void invalidateReferenceAfterManualMotion() {
+  referenced = false;
+  xPositionUm = 0;
+  ePositionUm = 0;
+  machineState = motionConfigured() ? MachineState::UNREFERENCED : MachineState::CONFIG_LOCKED;
+}
+
+void stopManualMotion(const char *reason) {
+  const uint32_t emitted = motion.emitted;
+  setSafeOutputs();
+  motion.active = false;
+  manualArmedAxis = 0;
+  invalidateReferenceAfterManualMotion();
+  clearTask();
+  Serial.printf("STOP reason=%s emitted_pulses=%lu position=UNREFERENCED\n",
+                reason, static_cast<unsigned long>(emitted));
+}
+
 void failTask(const char *error) {
   setSafeOutputs();
   motion.active = false;
@@ -296,6 +318,139 @@ bool startAxis(char axis, int32_t targetUm) {
     digitalWrite(E_ENABLE_PIN, LOW);
   }
   return true;
+}
+
+void sendManualStatus() {
+  Serial.printf(
+      "%s mode=FINAL_MANUAL armed=%c moving=%c endstops=NONE homing=MANUAL "
+      "Xscale=%lupulse/mm XdirHigh=%s XlongMax=20mm "
+      "Escale=%lupulse/mm EdirHigh=%s Erate=300pulse/s EmaxRawPulse=320 "
+      "state=%s position=%s NO_ENDSTOP_PROTECTION\n",
+      FIRMWARE_VERSION, manualArmedAxis ? manualArmedAxis : '-',
+      action == Action::MANUAL && motion.active ? motion.axis : '-',
+      static_cast<unsigned long>(X_PULSES_PER_MM),
+      X_DIR_HIGH_MOVES_RIGHT ? "RIGHT" : "LEFT",
+      static_cast<unsigned long>(E_PULSES_PER_MM),
+      E_DIR_HIGH_EXTENDS ? "EXTEND" : "RETRACT", stateName(machineState),
+      referenced ? "REFERENCED" : "UNREFERENCED");
+}
+
+bool manualAvailable() {
+  if (action != Action::NONE || motion.active) {
+    Serial.println("REJECT BUSY");
+    return false;
+  }
+  if (machineState == MachineState::PRESENTED || presentedSlotId[0]) {
+    Serial.println("REJECT BOX_PRESENTED_MANUAL_DISABLED");
+    return false;
+  }
+  return true;
+}
+
+bool consumeManualArm(char axis) {
+  const bool permitted = manualArmedAxis == axis &&
+                         uint32_t(millis() - manualArmedAtMs) < MANUAL_ARM_MS;
+  manualArmedAxis = 0;
+  if (!permitted) Serial.println("REJECT ARM_REQUIRED");
+  return permitted;
+}
+
+void startManualX(float mm) {
+  invalidateReferenceAfterManualMotion();
+  action = Action::MANUAL;
+  const int32_t deltaUm = static_cast<int32_t>(lroundf(mm * 1000.0f));
+  if (!startAxis('X', deltaUm)) {
+    stopManualMotion("ZERO_DISTANCE");
+    return;
+  }
+  Serial.printf(
+      "START TRAVEL X distance=%.3fmm pulses=%lu DIR=%s "
+      "NO_ENDSTOP_PROTECTION\n",
+      mm, static_cast<unsigned long>(motion.total),
+      digitalRead(X_DIR_PIN) == HIGH ? "HIGH" : "LOW");
+}
+
+void startManualE(long signedPulses) {
+  invalidateReferenceAfterManualMotion();
+  action = Action::MANUAL;
+  motion = {};
+  motion.active = true;
+  motion.axis = 'E';
+  motion.stepPin = E_STEP_PIN;
+  motion.remaining = static_cast<uint32_t>(signedPulses > 0 ? signedPulses : -signedPulses);
+  motion.total = motion.remaining;
+  motion.activeUs = E_ACTIVE_US;
+  motion.periodUs = E_PERIOD_US;
+  motion.edgeAtUs = micros();
+  motion.startedAtMs = millis();
+  motion.timeoutMs = static_cast<uint32_t>(
+      static_cast<uint64_t>(motion.total) * E_PERIOD_US / 1000 + MOTION_TIMEOUT_MARGIN_MS);
+  digitalWrite(E_DIR_PIN, signedPulses > 0 ? HIGH : LOW);
+  digitalWrite(E_STEP_PIN, LOW);
+  digitalWrite(E_ENABLE_PIN, LOW);
+  Serial.printf("START E raw_pulses=%lu DIR=%s SCALE=%lupulse/mm NO_ENDSTOP_PROTECTION\n",
+                static_cast<unsigned long>(motion.total),
+                signedPulses > 0 ? "HIGH" : "LOW",
+                static_cast<unsigned long>(E_PULSES_PER_MM));
+}
+
+void handleManualCommand(char *input) {
+  if (!strcmp(input, "STATUS")) {
+    sendManualStatus();
+    return;
+  }
+  if (!strcmp(input, "STOP")) {
+    if (action == Action::MANUAL) stopManualMotion("COMMAND");
+    else if (action != Action::NONE) failTask("STOP_REQUESTED");
+    else {
+      setSafeOutputs();
+      manualArmedAxis = 0;
+      Serial.println("STOP reason=COMMAND emitted_pulses=0 position=UNREFERENCED");
+    }
+    return;
+  }
+  if (action == Action::MANUAL || motion.active) {
+    stopManualMotion("COMMAND_DURING_MOTION");
+    return;
+  }
+  if (!strcmp(input, "ARM X CLEAR") || !strcmp(input, "ARM E CLEAR")) {
+    if (!manualAvailable()) return;
+    manualArmedAxis = input[4];
+    manualArmedAtMs = millis();
+    Serial.printf("ARMED %c one_motion_only expires=10s NO_ENDSTOP_PROTECTION\n",
+                  manualArmedAxis);
+    return;
+  }
+
+  char axis = 0, extra = 0;
+  float mm = 0;
+  if (sscanf(input, "TRAVEL %c %f %c", &axis, &mm, &extra) == 2 && axis == 'X') {
+    if (!consumeManualArm('X')) return;
+    if (!isfinite(mm) || fabsf(mm) < 1.0f || fabsf(mm) > 20.0f) {
+      Serial.println("REJECT X_TRAVEL_RANGE_1_TO_20_MM");
+      return;
+    }
+    if (!manualAvailable()) return;
+    startManualX(mm);
+    return;
+  }
+
+  long signedPulses = 0;
+  if (sscanf(input, "PULSE %c %ld %c", &axis, &signedPulses, &extra) == 2 && axis == 'E') {
+    if (!consumeManualArm('E')) return;
+    if ((signedPulses > -16 && signedPulses < 16) ||
+        signedPulses < -static_cast<long>(MANUAL_E_MAX_PULSES) ||
+        signedPulses > static_cast<long>(MANUAL_E_MAX_PULSES)) {
+      Serial.println("REJECT E_RAW_RANGE_16_TO_320_PULSES");
+      return;
+    }
+    if (!manualAvailable()) return;
+    startManualE(signedPulses);
+    return;
+  }
+
+  manualArmedAxis = 0;
+  Serial.println("REJECT UNKNOWN_COMMAND");
 }
 
 void finishSuccess() {
@@ -445,7 +600,9 @@ void handleCommand(const char *json) {
     return;
   }
   if (!strcmp(type, "stop")) {
-    if (action != Action::NONE) failTask("STOP_REQUESTED");
+    manualArmedAxis = 0;
+    if (action == Action::MANUAL) stopManualMotion("STOP_REQUESTED");
+    else if (action != Action::NONE) failTask("STOP_REQUESTED");
     else setSafeOutputs();
     return;
   }
@@ -453,6 +610,7 @@ void handleCommand(const char *json) {
     sendAck("invalid", false, "INVALID_MESSAGE");
     return;
   }
+  manualArmedAxis = 0;
 
   char taskId[65] = "";
   char command[20] = "";
@@ -527,7 +685,8 @@ void handleCommand(const char *json) {
 void tickMotion() {
   if (!motion.active) return;
   if (uint32_t(millis() - motion.startedAtMs) > motion.timeoutMs) {
-    failTask("MOTION_TIMEOUT");
+    if (action == Action::MANUAL) stopManualMotion("TIMEOUT");
+    else failTask("MOTION_TIMEOUT");
     return;
   }
   const uint32_t current = micros();
@@ -543,7 +702,8 @@ void tickMotion() {
         ePositionUm = motion.targetUm;
         digitalWrite(E_ENABLE_PIN, HIGH);
       }
-      advancePlan();
+      if (action == Action::MANUAL) stopManualMotion("PULSE_SEQUENCE_DONE_NOT_POSITION_FEEDBACK");
+      else advancePlan();
     }
     return;
   }
@@ -575,18 +735,26 @@ void setup() {
 
 void loop() {
   tickMotion();
+  if (manualArmedAxis && uint32_t(millis() - manualArmedAtMs) >= MANUAL_ARM_MS) {
+    manualArmedAxis = 0;
+    Serial.println("DISARMED EXPIRED");
+  }
   int budget = 48;
   while (Serial.available() && budget-- > 0) {
     const char ch = static_cast<char>(Serial.read());
     if (ch == '!') {
-      if (action != Action::NONE) failTask("IMMEDIATE_STOP");
+      if (action == Action::MANUAL) stopManualMotion("IMMEDIATE_STOP");
+      else if (action != Action::NONE) failTask("IMMEDIATE_STOP");
       else setSafeOutputs();
+      manualArmedAxis = 0;
       inputUsed = 0;
       droppingInput = true;
     } else if (ch == '\n') {
       if (!droppingInput && inputUsed) {
         inputLine[inputUsed] = 0;
-        handleCommand(inputLine);
+        const char *first = skipWhitespace(inputLine);
+        if (*first == '{') handleCommand(first);
+        else handleManualCommand(inputLine);
       }
       inputUsed = 0;
       droppingInput = false;

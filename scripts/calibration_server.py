@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local calibration console for the guarded ESP32-S3 axis-test firmware."""
+"""Local calibration console for guarded manual control on ESP32-S3 firmware."""
 
 from __future__ import annotations
 
