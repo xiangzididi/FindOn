@@ -33,7 +33,7 @@ text(886,550,'+3V3',18,c.red);wire(960,544,1290,544,'VDD',c.red);text(1310,550,'
 path('M1220 544V600H1290',c.red);dot(1220,544);text(1310,588,'RST');text(1310,615,'SLP');path('M1270 582H1290M1270 582V609H1290',c.red);dot(1270,600);
 text(886,584,'RST、SLP 短接后接 +3V3。',17,c.muted);
 text(886,620,'MS1 / MS2 / MS3 → +3V3',17,c.red);
-text(886,650,'光驱电机 + T4 丝杆；E 比例待标定。',17,c.muted);
+text(886,650,'光驱电机 + T4 丝杆；E 实测 21 pulse/mm。',17,c.muted);
 text(1310,652,'MS1 / MS2 / MS3',16);
 text(1185,682,'+3V3',16,c.red);path('M1220 669V646H1290',c.red);
 for(const [y,p,n] of [[280,'1A','A'],[318,'1B','A'],[360,'2A','B'],[398,'2B','B']]) {text(1445,y+6,p,16);path(`M1515 ${y}H1580`,c.green);text(1610,y+6,n,17,c.green);}

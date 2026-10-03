@@ -7,8 +7,8 @@
     "dir_high_motion": "RIGHT"
   },
   "e": {
-    "pulses_per_mm": 0,
-    "calibrated": false,
+    "pulses_per_mm": 21,
+    "calibrated": true,
     "dir_high_motion": "RETRACT",
     "dock_mm": null
   },

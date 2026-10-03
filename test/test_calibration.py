@@ -45,7 +45,8 @@ class CalibrationOutputTests(unittest.TestCase):
     def test_incomplete_config_stays_locked(self):
         raw = json.loads(calibration.CONFIG_PATH.read_text(encoding="utf-8"))
         missing = calibration.validate_calibration(raw)
-        self.assertIn("E pulse/mm", missing)
+        self.assertNotIn("E pulse/mm", missing)
+        self.assertIn("E 对接行程（0–50 mm）", missing)
         with self.assertRaises(ValueError):
             calibration.render_header(raw)
 
