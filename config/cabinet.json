@@ -1,9 +1,11 @@
 {
-  "profile": "single-layer-two-slot",
-  "rows": 1,
+  "profile": "two-slot-demo-with-2x2-expansion",
+  "rows": 2,
   "columns": 2,
   "controller": "ESP32-S3-N16R8",
   "motor": "PD42S1 TTL STEP/DIR",
+  "x_gear_ratio": "50:1",
+  "x_pulses_per_mm_measured": 20000,
   "x_transmission": "leadscrew_linear_rail",
   "motor_axis": "X",
   "extraction_driver": "A4988 STEP/DIR",
@@ -12,7 +14,9 @@
   "pickup": "left_side_fixed_station",
   "box_confirmation": "operator",
   "slots": [
-    { "id": "S01", "box_id": "B01", "row": 0, "column": 0, "name": "M3 螺母", "aliases": ["三毫米螺母", "螺母"] },
-    { "id": "S02", "box_id": "B02", "row": 0, "column": 1, "name": "M3 螺丝", "aliases": ["三毫米螺丝", "螺丝"] }
+    { "id": "S01", "box_id": "B01", "row": 0, "column": 0, "enabled": true, "name": "M3 螺母", "aliases": ["三毫米螺母", "螺母"] },
+    { "id": "S02", "box_id": "B02", "row": 0, "column": 1, "enabled": true, "name": "M3 螺丝", "aliases": ["三毫米螺丝", "螺丝"] },
+    { "id": "S03", "box_id": "B03", "row": 1, "column": 0, "enabled": false, "requires_axis": "Y", "name": "扩展格 3", "aliases": [] },
+    { "id": "S04", "box_id": "B04", "row": 1, "column": 1, "enabled": false, "requires_axis": "Y", "name": "扩展格 4", "aliases": [] }
   ]
 }

@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { Cabinet } from '../lib/cabinet.js';
-import { SimulatedDevice, JsonLineDevice } from '../lib/device.js';
+import { SimulatedDevice, JsonLineDevice, UsbSerialDevice } from '../lib/device.js';
 import { createServer } from '../server.js';
 
 function create(t, options = {}) {
@@ -59,10 +59,10 @@ test('两格配置保留旧盒记录，归档未知位置阻止回零', async t 
 
 test('横移路径确认缺失时拒绝继续', async t => {
   const app = create(t,{device:{mode:'simulation',async execute(command,onEvent) {
-    onEvent({task_id:command.id,seq:1,phase:'HOMING'});
-    onEvent({task_id:command.id,seq:2,phase:'E_CLEAR',sensors:{e_clear:false}});
+    onEvent({task_id:command.id,seq:1,phase:'E_CLEAR',sensors:{e_clear:false}});
   }}});
-  assert.match((await home(app)).error,/未确认让开/);
+  app.deviceState = 'READY';
+  assert.match((await submit(app,'FETCH','B01')).error,/未确认让开/);
   assert.equal(app.deviceState,'RECOVERY_REQUIRED');
 });
 
@@ -78,7 +78,7 @@ test('轴到位后停止仍将盒子标记未知，不能晚确认成功', async
 
 test('完整取回闭环仅在完成回执后更新位置', async t => {
   const app = create(t);
-  assert.throws(() => app.submit({ action: 'FETCH', area_clear: true, box_id: 'B01', request_id: 'before-home' }), /回零/);
+  assert.throws(() => app.submit({ action: 'FETCH', area_clear: true, box_id: 'B01', request_id: 'before-home' }), /原点/);
   await home(app);
   const task = app.submit({ action: 'FETCH', area_clear: true, box_id: 'B01', request_id: 'fetch' });
   assert.equal(app.boxes().find(b => b.id === 'B01').state, 'IN_TRANSIT');
@@ -134,10 +134,8 @@ test('超时和缺少传感器回执均不能显示成功', async t => {
   const incomplete = create(t, { device: { mode: 'simulation', async execute() {} } });
   assert.match((await home(incomplete)).error, /缺少完整/);
   const invalid = create(t, { device: { mode: 'simulation', async execute(command, onEvent) {
-    onEvent({ task_id: command.id, seq: 1, phase: 'HOMING' });
-    onEvent({ task_id: command.id, seq: 2, phase: 'E_CLEAR', sensors: {e_clear:true} });
-    onEvent({ task_id: command.id, seq: 3, phase: 'X_HOMING', sensors: {} });
-    onEvent({ task_id: command.id, seq: 4, phase: 'HOME_CONFIRMED', sensors: {} });
+    onEvent({ task_id: command.id, seq: 1, phase: 'REFERENCE_ACCEPTED' });
+    onEvent({ task_id: command.id, seq: 2, phase: 'HOME_CONFIRMED', sensors: {} });
   } } });
   assert.match((await home(invalid)).error, /回零确认不足/);
 });
@@ -215,12 +213,56 @@ test('JSONL 中文 UTF-8 字节分片不会损坏错误消息', async () => {
   await expected;
 });
 
+class FakeTransport extends EventEmitter {
+  writes = [];
+  connected = false;
+  start() { this.connected = true; this.emit('open'); }
+  info() { return { bridge_connected: this.connected, serial_port: 'COM-TEST', baud: 115200, bridge_error: null }; }
+  write(data) { this.writes.push(data); }
+  close() { this.connected = false; this.emit('close'); }
+}
+
+test('USB 设备先完成协议握手，再发送业务级指令', async () => {
+  const transport = new FakeTransport();
+  const device = new UsbSerialDevice(transport, { probeMs: 60000, timeoutMs: 1000 });
+  device.start();
+  assert.equal(JSON.parse(transport.writes[0]).type, 'status');
+  transport.emit('data', Buffer.from(`${JSON.stringify({ v: 1, type: 'status', protocol: 'partgo-serial-v1',
+    node: 'ESP32-S3', firmware: 'test', state: 'UNREFERENCED', motion_configured: true,
+    referenced: false, config_version: 4, slots: [] })}\n`));
+  assert.equal(device.info().verified, true);
+  const events = [];
+  const pending = device.execute({ id: 'T-USB', action: 'HOME', area_clear: true,
+    manual_reference_confirmed: true }, event => events.push(event), new AbortController().signal);
+  const command = JSON.parse(transport.writes.at(-1));
+  assert.equal(command.cmd, 'REFERENCE');
+  assert.equal(command.manual_reference_confirmed, true);
+  transport.emit('data', Buffer.from('{"v":1,"type":"ack","task_id":"T-USB","accepted":true}\n'));
+  transport.emit('data', Buffer.from('{"v":1,"type":"event","task_id":"T-USB","seq":1,"phase":"REFERENCE_ACCEPTED","sensors":{}}\n'));
+  transport.emit('data', Buffer.from('{"v":1,"type":"result","task_id":"T-USB","success":true,"state":"READY"}\n'));
+  await pending;
+  assert.equal(events.length, 1);
+  device.close();
+});
+
+test('真实设备故障后只有人工确认全部归位才能恢复', t => {
+  const device = { mode: 'hardware', info: () => ({ connected: true, verified: true, motion_configured: true }), close() {} };
+  const app = new Cabinet(':memory:', { device });
+  t.after(() => app.close());
+  app.db.prepare("UPDATE boxes SET state='UNKNOWN' WHERE id='B01'").run();
+  app.deviceState = 'RECOVERY_REQUIRED';
+  assert.throws(() => app.recoverHardware({ confirmed_all_stored: false }), /需要确认/);
+  app.recoverHardware({ confirmed_all_stored: true });
+  assert.equal(app.deviceState, 'UNHOMED');
+  assert.ok(app.boxes().every(box => box.state === 'STORED'));
+});
+
 test('HTTP 页面、状态、互斥、输入校验与任务接口', async t => {
   const app = create(t); const server = createServer(app);
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(() => new Promise(resolve => server.close(resolve)));
   const base = `http://127.0.0.1:${server.address().port}`;
-  assert.match(await (await fetch(base)).text(), /格物/);
+  assert.match(await (await fetch(base)).text(), /PartGo/);
   const state = await (await fetch(`${base}/api/state`)).json(); assert.equal(state.boxes.length, 2);
   const post = (path, data, token = state.token) => fetch(`${base}/api${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Cabinet-Token': token }, body: JSON.stringify(data) });
   assert.equal((await post('/device/home', {}, 'wrong')).status, 403);

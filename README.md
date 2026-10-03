@@ -1,90 +1,121 @@
-# 格物 · 桌面智能零件柜
+# PartGo · 桌面智能零件调度系统
 
-可直接运行的第一阶段软件 Demo。单层两格柜管理、取回件任务、状态回执、故障演练、SQLite 持久化已经实现。主控确定为 ESP32-S3，当前 Web 服务运行的是 PC 模拟设备，尚未连接真实电机。
+PartGo 是桌面二维抽屉阵列式零件柜的 48 小时演示项目。电脑上的本地服务管理零件名称、盒位和任务历史，通过 USB 串口向 ESP32-S3 发送 `REFERENCE / FETCH / RETURN / STOP` 业务命令；ESP32-S3 控制 PD42S1 X 轴和 A4988 E 轴完成选格与抽盒。
 
-## 启动
+当前演示配置启用同一层的 `S01/B01`、`S02/B02`，界面同时显示第二层 `S03/S04` 扩展位。加入 Y 轴并标定之前，第二层明确显示为不可用。
 
-要求 Node.js 24 或更新版本。当前已在 Windows / Node.js 24.13.0 验证。无需 `npm install`，无第三方运行依赖。
+## 当前完成状态
+
+- 新 PartGo 响应式前端已接入真实后端状态，支持搜索、浏览器语音、BOM 导入、格口编辑和批量顺序取料。
+- Node.js 本地服务只监听 `127.0.0.1`，用 SQLite 保存盒位、任务、阶段事件和人工确认。
+- USB 串口桥支持自动重连、控制器握手、JSONL 分片、任务超时和立即停止。
+- ESP32-S3 最终固件已编译通过；上电不运动，未标定时报告 `CONFIG_LOCKED`。
+- 取件送达和回件结束都要求操作员确认盒子实际位置。当前没有限位、编码器或盒体传感器，界面只显示真实存在的“开环脉冲计数”。
+- 1×2 当前硬件与 2×2/Y 轴扩展共用一套格口协议和前端布局。
+
+## 安全模拟演示
+
+要求 Node.js 24 或更新版本。前端无需构建，也无需安装 npm 包。
 
 ```powershell
 cd D:\ProgramStudy\Geek\Hackathon1st
-npm.cmd start
+node server.js
 ```
 
-打开 http://127.0.0.1:3210 。在终端按 Ctrl+C 停止。SQLite 在此版本 Node 中可能输出 ExperimentalWarning，不影响当前演示。
+打开 <http://127.0.0.1:3210>：
 
-数据库首次启动自动创建在 `data/cabinet.sqlite`，后续启动保留零件名称、盒子状态、任务及事件。不应同时用多个服务进程打开同一数据库。
+1. 点击“确认机械原点”，勾选确认项。模拟模式只登记坐标，不驱动硬件。
+2. 选择 `S01` 或 `S02`，确认运动区域清空后开始取件。
+3. 等待页面进入“已到取物口”，取用零件并勾选取物口已清空。
+4. 点击归还；模拟动作结束后目视确认提示，再点击“确认料盒已完整归位”。
+5. 可导入 `.xlsx / .xls / .csv / .txt` 清单并按顺序处理已匹配的格口。
 
-## 第一次演示
+数据库保存在 `data/cabinet.sqlite`。不应同时启动多个服务进程打开同一数据库。
 
-1. 展开页面底部“设备调试与模拟验证”，点击“模拟回零”。
-2. 输入“拿 M3 螺母”并解析，确认取件；也可直接点盒子的“取到手边”。
-3. 确认路径清空，观察两轴模拟阶段；轴到位后点击“确认盒子位置”。
-4. 勾选“取用完成，手已离开取物口”，点击归还当前盒，到位后再次确认实际位置。
-5. 输入“拿二号盒”，验证第二格选取。
-6. 在调试区勾选故障注入，再取一盒。系统进入待恢复；点击“恢复模拟初始位置”并重新回零后继续。
+## USB 串口模式
 
-模拟恢复保留日志和名称，不代表真实设备可按此方式恢复。真实机构中断后必须核对物理位置。
+Python 只用于打开串口和解析 Excel：
 
-## 已实现
+```powershell
+python -m pip install -r requirements.txt
+.\start-hardware.ps1 -Port COM12
+```
 
-- 1 × 2 阵列，S01/B01 与 S02/B02；盒号与位置分开管理。
-- 零件名称与别名编辑；中文/数字盒号、名称、别名匹配；歧义候选选择。
-- 网页取件、回件、回零、软件停止、模拟故障与模拟恢复。
-- 单任务互斥、单盒在外、request_id 去重、回件操作区确认。
-- 独立设备/盒子/任务状态；只有全部阶段和到位确认齐全才显示完成。
-- 异常保留最后确认位置；服务重启不重放未决动作。
-- 本地 SQLite 持久化，任务阶段及模拟传感器快照日志。
-- JSONL 双工流适配器及对应测试，可作为后续 USB 串口适配的基础。
-- ESP32-S3 板端协议演练源码，详见 `docs/esp32s3-integration.md`。
+也可直接设置环境变量：
 
-语音入口使用浏览器 SpeechRecognition，识别结果先展示并由用户确认。部分浏览器不支持，部分依赖在线服务；文字输入始终可用。当前完成的是语音 API 接入，未做真实麦克风及现场噪声验收。[浏览器兼容与服务说明](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition)
+```powershell
+$env:PARTGO_DEVICE_MODE = "hardware"
+$env:PARTGO_SERIAL_PORT = "COM12"
+$env:PARTGO_SERIAL_BAUD = "115200"
+node server.js
+```
+
+服务会自动重连，但只有收到 `partgo-serial-v1` 的 ESP32-S3 握手后才显示“已验证”。旧的轴测试固件会显示未验证，不会被当成最终控制器。
+
+## 固件
+
+- `firmware/esp32s3_axis_test`：人工标定专用。保留受限点动/脉冲测试，不执行自动任务。
+- `firmware/esp32s3_controller`：最终 USB 业务控制固件。
+
+编译最终固件：
+
+```powershell
+$pio = "$env:USERPROFILE\.platformio\penv\Scripts\platformio.exe"
+& $pio run -d .\firmware\esp32s3_controller
+```
+
+当前最终固件故意保持配置锁定：X 比例已测得 `20000 pulse/mm`，E 比例、E 对接行程和 `S01/S02` X 坐标仍为空。完成标定并填写 `firmware/esp32s3_controller/src/main.cpp` 的“待标定配置”后再刷入控制板。完整协议见 [USB 串口协议 v1](docs/serial-protocol-v1.md)。
 
 ## 验证
 
 ```powershell
-npm.cmd test
-npm.cmd run check
+node --test
+node --check server.js
+node --check lib/cabinet.js
+node --check lib/device.js
+node --check lib/serial-transport.js
+node --check public/app.js
 ```
 
-自动化测试覆盖取回闭环、回零约束、幂等/互斥、故障/停止/超时、持久化/中断恢复、语义匹配、JSONL 分片/断连和 HTTP 接口。板端源码尚未编译或刷板，真实电机、传感器及机械结构尚未验收。
+固件验证：
+
+```powershell
+& "$env:USERPROFILE\.platformio\penv\Scripts\platformio.exe" run -d .\firmware\esp32s3_controller
+```
+
+自动化测试覆盖完整取回闭环、任务互斥与幂等、阶段顺序、人工盒位确认、故障/停止/超时、重启恢复、USB 握手、串口分片、HTTP 接口和数据库持久化。
 
 ## 目录
 
 ```text
-server.js                    本机 HTTP 服务与 API
-lib/cabinet.js               SQLite、任务与盒子状态机、指令解析
-lib/device.js                PC 模拟器、JSONL 双工流适配器
-public/                     管理界面，无构建步骤
-test/cabinet.test.js         行为与接口测试
-firmware/esp32s3_protocol_demo/ 板端串口协议演练（无电机输出）
-docs/esp32s3-integration.md  刷板说明、协议、硬件待确认项
-research/                   项目方案和 48h 计划
-data/                       运行时数据库（不纳入版本管理）
+server.js                         本机 HTTP 服务、静态资源与 BOM 接口
+lib/cabinet.js                    SQLite、库存和任务状态机
+lib/device.js                     模拟设备、JSONL 与 USB 设备适配器
+lib/serial-transport.js           自动重连的 Python 串口桥进程
+scripts/serial_bridge.py          pyserial 原始字节桥
+scripts/parse_bom.py              本地 BOM 文件解析
+public/                           PartGo 前端，无构建步骤
+firmware/esp32s3_axis_test/       标定测试固件
+firmware/esp32s3_controller/      最终控制固件
+docs/serial-protocol-v1.md        主机与 ESP32-S3 指令集合
+config/cabinet.json               1×2 启用格与 2×2 扩展配置
+test/cabinet.test.js              状态机、串口与 HTTP 测试
 ```
 
-## API
+## 本机 API
 
-`GET /api/state` 返回界面状态及本机请求 token；写请求携带 `X-Cabinet-Token`，JSON 内容类型。服务仅监听 127.0.0.1，不对公网开放。
+`GET /api/state` 返回界面状态和临时请求令牌。所有写请求携带 `X-Cabinet-Token`；服务不对局域网或公网开放。
 
-| 方法 | 路径 | 输入 |
-|---|---|---|
-| GET | /api/state | 无 |
-| PATCH | /api/boxes/B01 | name, aliases 数组 |
-| POST | /api/interpret | text；只解析，不触发动作 |
-| POST | /api/tasks | action, box_id, request_id；FETCH/RETURN 另需 area_clear=true |
-| GET | /api/tasks/{id} | 无 |
-| POST | /api/tasks/{id}/confirm | confirmed=true，确认实际盒子位置 |
-| POST | /api/device/home | request_id |
-| POST | /api/device/stop | 空对象 |
-| POST | /api/simulation/reset | confirmed=true |
+| 方法 | 路径 | 作用 |
+| --- | --- | --- |
+| `GET` | `/api/state` | 布局、设备、盒位和任务状态 |
+| `PATCH` | `/api/boxes/{id}` | 更新零件名称和别名 |
+| `POST` | `/api/tasks` | 提交取件或回件任务 |
+| `POST` | `/api/tasks/{id}/confirm` | 人工确认盒子实际位置 |
+| `POST` | `/api/device/reference` | 人工登记 X/E 原点 |
+| `POST` | `/api/device/stop` | 软件停止并进入待恢复状态 |
+| `POST` | `/api/device/recover` | 真实设备人工检查后恢复盒位记录 |
+| `POST` | `/api/simulation/reset` | 仅模拟模式恢复初始状态 |
+| `POST` | `/api/bom/import` | 本地解析 BOM 文件，最大 5 MB |
 
-同一 request_id 重试同一任务会返回原任务；更改动作或盒号返回冲突。失败动作不得通过换一个 request_id 直接重试，必须先核对/恢复。名称和别名都作为文本渲染，不生成 HTML。
-
-## 当前硬件方案
-
-PD42S1 TTL STEP/DIR 经减速箱和丝杆驱动 X 左右选格；X 已实测为 20000 pulse/mm、正方向向右，支持带加减速的 0.1–1 mm 点动及 1–20 mm 受限相对移动。三星光驱拆机微型步进电机 + A4988 驱动约 50 mm 的 T4 E 轴丝杆抽盒；E 比例尚未标定，正在进行全步空载诊断。X/E 均没有原点/限位开关，网页仍使用模拟设备。取用位置为导轨最左侧固定取物区，回件先返回原格。见 [接线、行程校核与标定步骤](docs/two-axis-hardware.md)。原六格数据库记录保留，只启用两格。
-
-## 下一步
-
-先在实机验证 X/E 方向和实际位移比例，再制作人工基准标记并标定取物区、S01/S02、挂钩横移和 E 轴伸缩坐标。单格分步动作通过后，再把真实运动状态机接入 COM 口。
+软件停止不能代替实体断电急停。没有限位开关时，断线、停止或动作不完整都必须先检查机械位置，再执行人工恢复和原点确认。
