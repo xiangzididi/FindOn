@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": null,
+  "updated_at": "2026-10-03T06:34:49.204858+00:00",
   "x": {
     "pulses_per_mm": 20000,
     "calibrated": true,
@@ -11,10 +11,14 @@
     "pulses_per_mm": 21,
     "calibrated": true,
     "dir_high_motion": "RETRACT",
-    "dock_mm": 48
+    "dock_mm": 48.0
   },
   "slots": {
-    "S01": { "x_mm": null },
-    "S02": { "x_mm": null }
+    "S01": {
+      "x_mm": 32.0
+    },
+    "S02": {
+      "x_mm": 106.0
+    }
   }
 }

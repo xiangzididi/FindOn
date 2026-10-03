@@ -64,7 +64,7 @@ $pio = "$env:USERPROFILE\.platformio\penv\Scripts\platformio.exe"
 & $pio run -d .\firmware\esp32s3_controller
 ```
 
-当前最终固件故意保持配置锁定：X 比例为 `20000 pulse/mm`，E 比例为 `21 pulse/mm`，E 对接行程为 `48 mm`，取盒挂钩横移为向右 `4.5 mm`；`S01/S02` X 坐标仍为空。使用下方标定台完成剩余参数后再刷入控制板。完整协议见 [USB 串口协议 v1](docs/serial-protocol-v1.md)。
+最终固件的机械参数已经完整：X 比例为 `20000 pulse/mm`，E 比例为 `21 pulse/mm`，E 对接行程为 `48 mm`，取盒挂钩横移为向右 `4.5 mm`，`S01/S02` X 坐标分别为 `32 mm / 106 mm`。编译后的控制器不再处于 `CONFIG_LOCKED`，但每次上电仍必须人工确认 X/E 原点后才接受取回任务。完整协议见 [USB 串口协议 v1](docs/serial-protocol-v1.md)。
 
 ## 本地标定台
 

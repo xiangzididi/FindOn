@@ -42,12 +42,12 @@ class CalibrationOutputTests(unittest.TestCase):
             "slots": {"S01": {"x_mm": 42.5}, "S02": {"x_mm": 112.75}},
         }
 
-    def test_incomplete_config_stays_locked(self):
+    def test_complete_config_unlocks_and_missing_slot_locks(self):
         raw = json.loads(calibration.CONFIG_PATH.read_text(encoding="utf-8"))
-        missing = calibration.validate_calibration(raw)
-        self.assertNotIn("E pulse/mm", missing)
-        self.assertNotIn("E 对接行程（0–50 mm）", missing)
-        self.assertIn("S01 X 坐标（0–250 mm）", missing)
+        self.assertEqual(calibration.validate_calibration(raw), [])
+        self.assertIn("S01_X_UM = 32000", calibration.render_header(raw))
+        raw["slots"]["S01"]["x_mm"] = None
+        self.assertIn("S01 X 坐标（0–250 mm）", calibration.validate_calibration(raw))
         with self.assertRaises(ValueError):
             calibration.render_header(raw)
 
