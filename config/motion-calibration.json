@@ -10,7 +10,7 @@
   "e": {
     "pulses_per_mm": 21,
     "calibrated": true,
-    "dir_high_motion": "RETRACT",
+    "dir_high_motion": "EXTEND",
     "dock_mm": 48.0
   },
   "slots": {

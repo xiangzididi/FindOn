@@ -12,4 +12,4 @@ constexpr int32_t S02_X_UM = 106000;
 
 // Logical positive X is right; logical positive E is extension toward a box.
 constexpr bool X_DIR_HIGH_MOVES_RIGHT = true;
-constexpr bool E_DIR_HIGH_EXTENDS = false;
+constexpr bool E_DIR_HIGH_EXTENDS = true;
