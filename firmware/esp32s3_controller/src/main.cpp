@@ -11,7 +11,7 @@
 
 namespace {
 
-constexpr char FIRMWARE_VERSION[] = "PARTGO-CONTROLLER-1.2.1";
+constexpr char FIRMWARE_VERSION[] = "PARTGO-CONTROLLER-1.2.2";
 constexpr char PROTOCOL_NAME[] = "partgo-serial-v1";
 constexpr int PROTOCOL_VERSION = 1;
 constexpr int CONFIG_VERSION = 5;
@@ -29,7 +29,7 @@ constexpr uint32_t X_START_PERIOD_US = 50;
 constexpr uint32_t X_CRUISE_PERIOD_US = 17;
 constexpr uint32_t X_RAMP_PULSES = 2000;
 constexpr uint32_t E_EXTEND_PERIOD_US = 3333;   // 300 pulse/s, unloaded docking.
-constexpr uint32_t E_RETRACT_PERIOD_US = 8000;  // 125 pulse/s, loaded box extraction.
+constexpr uint32_t E_RETRACT_PERIOD_US = 16667; // 60 pulse/s, loaded box extraction.
 constexpr uint32_t E_MANUAL_PERIOD_US = 3333;
 constexpr uint32_t MOTION_TIMEOUT_MARGIN_MS = 5000;
 constexpr uint32_t MOTION_TIMEOUT_MAX_MS = 300000;
@@ -327,7 +327,7 @@ void sendManualStatus() {
   Serial.printf(
       "%s mode=FINAL_MANUAL armed=%c moving=%c endstops=NONE homing=MANUAL "
       "Xscale=%lupulse/mm XdirHigh=%s XlongMax=20mm "
-      "Escale=%lupulse/mm EdirHigh=%s Eextend=300pulse/s Eretract=125pulse/s "
+      "Escale=%lupulse/mm EdirHigh=%s Eextend=300pulse/s Eretract=60pulse/s "
       "EmaxRawPulse=320 "
       "state=%s position=%s NO_ENDSTOP_PROTECTION\n",
       FIRMWARE_VERSION, manualArmedAxis ? manualArmedAxis : '-',
@@ -494,7 +494,10 @@ void advancePlan() {
     case Stage::FETCH_HOOK_SHIFT:
       snprintf(fields, sizeof(fields), "\"x_in_position\":true,\"hook_engaged\":true,\"x_um\":%ld", static_cast<long>(xPositionUm));
       sendEvent("HOOK_ENGAGED", fields);
-      sendEvent("PULLING", "\"axis\":\"E\"");
+      snprintf(fields, sizeof(fields),
+               "\"axis\":\"E\",\"direction\":\"NEGATIVE\",\"signed_pulses\":-%lu",
+               static_cast<unsigned long>(pulsesFor('E', E_DOCK_UM)));
+      sendEvent("PULLING", fields);
       stage = Stage::FETCH_RETRACT;
       if (!startAxis('E', 0)) advancePlan();
       break;

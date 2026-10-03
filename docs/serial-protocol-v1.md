@@ -73,7 +73,7 @@
 ### 握手与状态
 
 ```json
-{"v":1,"type":"hello","request_id":"boot-01","protocol":"partgo-serial-v1","node":"ESP32-S3","firmware":"PARTGO-CONTROLLER-1.2.1","state":"CONFIG_LOCKED","motion_configured":false,"referenced":false,"busy":false,"config_version":5,"layout":{"rows":2,"columns":2,"has_y_axis":false},"calibration":{"x_pulse_per_mm":20000,"e_pulse_per_mm":21,"e_dock_um":48000,"x_hook_shift_um":4500},"slots":[{"id":"S01","enabled":true,"calibrated":false},{"id":"S02","enabled":true,"calibrated":false},{"id":"S03","enabled":false,"calibrated":false},{"id":"S04","enabled":false,"calibrated":false}]}
+{"v":1,"type":"hello","request_id":"boot-01","protocol":"partgo-serial-v1","node":"ESP32-S3","firmware":"PARTGO-CONTROLLER-1.2.2","state":"CONFIG_LOCKED","motion_configured":false,"referenced":false,"busy":false,"config_version":5,"layout":{"rows":2,"columns":2,"has_y_axis":false},"calibration":{"x_pulse_per_mm":20000,"e_pulse_per_mm":21,"e_dock_um":48000,"x_hook_shift_um":4500},"slots":[{"id":"S01","enabled":true,"calibrated":false},{"id":"S02","enabled":true,"calibrated":false},{"id":"S03","enabled":false,"calibrated":false},{"id":"S04","enabled":false,"calibrated":false}]}
 ```
 
 `status` 响应字段相同，只把 `type` 改为 `status`。`motion_configured=false` 时，本机页面显示“待标定”，并禁用自动取还件。
