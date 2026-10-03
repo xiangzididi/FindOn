@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="1330" viewBox="0 0 1700 1330"><title>格物双轴零件柜接线图 R5</title><desc>ESP32-S3-N16R8 使用脉冲方向控制带 1:50 减速箱的 PD42S1 与 R100 采样电阻 A4988，当前没有原点或限位开关，共地供电。</desc><rect width="1700" height="1330" fill="#f5f7fa"/><g font-family="Microsoft YaHei, Noto Sans CJK SC, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="1330" viewBox="0 0 1700 1330"><title>格物双轴零件柜接线图 R6</title><desc>ESP32-S3-N16R8 使用脉冲方向控制带 1:50 减速箱的 PD42S1 与 R100 采样电阻 A4988，当前没有原点或限位开关，共地供电。</desc><rect width="1700" height="1330" fill="#f5f7fa"/><g font-family="Microsoft YaHei, Noto Sans CJK SC, sans-serif">
 <text x="45" y="53" font-size="32" fill="#203448" font-weight="600">格物 / 单层两格 · 双轴电气接线图</text>
-<text x="45" y="88" font-size="19" fill="#586a7a" font-weight="400">R5 · 光驱电机修订    GPIO 按当前测试固件；按端子名称接线，图中排列不代表模块实物针脚顺序。</text>
+<text x="45" y="88" font-size="19" fill="#586a7a" font-weight="400">R6 · X 实测比例更新    GPIO 按当前测试固件；按端子名称接线，图中排列不代表模块实物针脚顺序。</text>
 <text x="45" y="118" font-size="18" fill="#586a7a" font-weight="400">同名网络（+3V3 / GND / +VM）相连；实心圆为连接点，交叉无圆点不相连。两轴均为 STEP/DIR。</text>
 <rect x="40" y="145" width="790" height="340" rx="8" fill="white" stroke="#bccad5"/>
 <text x="60" y="178" font-size="22" fill="#203448" font-weight="600">01  X 轴：PD42S1 + 丝杆 / 导轨</text>
@@ -29,7 +29,7 @@
 <circle cx="450" cy="265" r="4" fill="#344e65"/>
 <text x="463" y="235" font-size="15" fill="#203448" font-weight="400">10 kΩ</text>
 <text x="65" y="447" font-size="18" fill="#203448" font-weight="400">脉冲模式；GPIO17 / STP 用 10 kΩ 上拉保持空闲 HIGH；EN 端不接。</text>
-<text x="65" y="473" font-size="17" fill="#586a7a" font-weight="400">16 细分；电机 → 1:50 减速箱 → 2 mm 导程丝杆；X = 80000 pulse/mm。</text>
+<text x="65" y="473" font-size="17" fill="#586a7a" font-weight="400">声明参数理论值 80000；实测 X = 20000 pulse/mm，当前以实测值控制。</text>
 <rect x="860" y="145" width="800" height="580" rx="8" fill="white" stroke="#bccad5"/>
 <text x="880" y="178" font-size="22" fill="#203448" font-weight="600">02  E 轴：A4988 + 约 50 mm 丝杆模组</text>
 <rect x="885" y="235" width="200" height="200" rx="8" fill="white" stroke="#bccad5"/>

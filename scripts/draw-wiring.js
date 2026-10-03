@@ -9,9 +9,9 @@ const dot=(x,y)=>s.push(`<circle cx="${x}" cy="${y}" r="4" fill="${c.line}"/>`);
 const wire=(x1,y1,x2,y2,label='',color=c.blue)=>{path(`M${x1} ${y1}H${x2}V${y2}`,color);if(label)text((x1+x2)/2-35,y1-9,label,16,color);};
 const ground=(x,y)=>{path(`M${x} ${y}v12m-14 0h28m-23 6h18m-13 6h8`);};
 const resistor=(x,y)=>{path(`M${x} ${y}v10`);s.push(`<rect x="${x-5}" y="${y+10}" width="10" height="24" fill="white" stroke="${c.line}" stroke-width="2"/>`);path(`M${x} ${y+34}v10`);};
-s.push(`<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="1330" viewBox="0 0 1700 1330"><title>格物双轴零件柜接线图 R5</title><desc>ESP32-S3-N16R8 使用脉冲方向控制带 1:50 减速箱的 PD42S1 与 R100 采样电阻 A4988，当前没有原点或限位开关，共地供电。</desc><rect width="1700" height="1330" fill="${c.bg}"/><g font-family="Microsoft YaHei, Noto Sans CJK SC, sans-serif">`);
+s.push(`<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="1330" viewBox="0 0 1700 1330"><title>格物双轴零件柜接线图 R6</title><desc>ESP32-S3-N16R8 使用脉冲方向控制带 1:50 减速箱的 PD42S1 与 R100 采样电阻 A4988，当前没有原点或限位开关，共地供电。</desc><rect width="1700" height="1330" fill="${c.bg}"/><g font-family="Microsoft YaHei, Noto Sans CJK SC, sans-serif">`);
 text(45,53,'格物 / 单层两格 · 双轴电气接线图',32,c.ink,600);
-text(45,88,'R5 · 光驱电机修订    GPIO 按当前测试固件；按端子名称接线，图中排列不代表模块实物针脚顺序。',19,c.muted);
+text(45,88,'R6 · X 实测比例更新    GPIO 按当前测试固件；按端子名称接线，图中排列不代表模块实物针脚顺序。',19,c.muted);
 text(45,118,'同名网络（+3V3 / GND / +VM）相连；实心圆为连接点，交叉无圆点不相连。两轴均为 STEP/DIR。',18,c.muted);
 
 box(40,145,790,340,'01  X 轴：PD42S1 + 丝杆 / 导轨');
@@ -21,7 +21,7 @@ for(const [i,l,r] of [[0,'GPIO17','STP'],[1,'GPIO18','DIR'],[2,'3V3','COM'],[3,'
 }
 text(420,199,'+3V3',16,c.red);path('M450 205V211',c.red);resistor(450,211);path('M450 255V265',c.red);dot(450,265);text(463,235,'10 kΩ',15);
 text(65,447,'脉冲模式；GPIO17 / STP 用 10 kΩ 上拉保持空闲 HIGH；EN 端不接。',18);
-text(65,473,'16 细分；电机 → 1:50 减速箱 → 2 mm 导程丝杆；X = 80000 pulse/mm。',17,c.muted);
+text(65,473,'声明参数理论值 80000；实测 X = 20000 pulse/mm，当前以实测值控制。',17,c.muted);
 
 box(860,145,800,580,'02  E 轴：A4988 + 约 50 mm 丝杆模组');
 box(885,235,200,200,'ESP32-S3');box(1290,225,225,450,'A4988');

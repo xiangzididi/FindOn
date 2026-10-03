@@ -20,10 +20,11 @@
       "lead_mm_per_output_revolution": 2,
       "pulses_per_motor_revolution": 3200,
       "pulses_per_output_revolution": 160000,
-      "pulses_per_mm": 80000,
+      "theoretical_pulses_per_mm_from_declared_parameters": 80000,
+      "pulses_per_mm": 20000,
       "nominal_travel_mm": 250,
       "measured_usable_travel_mm": null,
-      "positive_direction_level": null,
+      "positive_direction_level": "HIGH_moves_right",
       "pickup_coordinate_mm": null,
       "slot_align_coordinates_mm": {
         "S01": null,
@@ -31,8 +32,14 @@
       },
       "hook_engage_shift_mm": null,
       "manual_reference": "left_pickup_station_mark",
-      "jog_pulse_rate_hz": 20000,
-      "scale_source": "user_confirmed_specs_not_measured"
+      "jog_start_pulse_rate_hz": 20000,
+      "jog_peak_pulse_rate_hz": 58823,
+      "jog_peak_speed_mm_s": 2.94,
+      "jog_ramp_pulses": 2000,
+      "jog_ramp_distance_mm": 0.1,
+      "long_travel_max_mm": 20,
+      "scale_source": "measured_400000_pulses_over_20mm_both_directions_zero_observed_return_error",
+      "calibration_note": "Measured scale is 4x lower than the value derived from declared microstep, gearbox and lead; verify those mechanical/settings inputs before treating the discrepancy as explained."
     },
     "E": {
       "driver": "A4988 STEP/DIR",
@@ -66,7 +73,7 @@
       "measured_usable_travel_mm": null,
       "positive_direction_level": "HIGH_retracts_axis",
       "manual_reference": "fully_retracted_clear_position_mark",
-      "jog_pulse_rate_hz": 100,
+      "jog_pulse_rate_hz": 300,
       "motor_rated_current_a": null,
       "motor_supply_voltage_v": 12,
       "sense_resistor_marking": "R100",
@@ -85,7 +92,15 @@
         "result": "travel_exceeded_T4_axis_range_and_reached_mechanical_end",
         "interpretation": "motor_step_angle_and_screw_lead_are_not_the_assumed_1.8deg_and_2mm"
       },
-      "calibration_mode": "raw_pulses_max_320_per_arm",
+      "diagnostic_mode": "1_to_50_pulses_at_5Hz_with_100ms_high_and_100ms_low",
+      "diagnostic_input_observation": {
+        "enable_v_during_test": 0.1,
+        "step_average_v_during_test": 1.7,
+        "other_driver_voltages": "reported_normal",
+        "unloaded_motor_result": "still_shakes",
+        "next_test": "full_step_mode_with_MS1_MS2_MS3_grounded_then_known_good_A4988_cross_check_if_needed"
+      },
+      "calibration_mode": "raw_pulses_max_320_per_arm_pending_full_step_diagnosis",
       "scale_source": "unknown_requires_measurement"
     }
   },
