@@ -26,10 +26,15 @@ async function api(path, body) {
 }
 
 function displayValue(input, value) {
-  if (!hydrated && value !== null && value !== undefined) input.value = value;
+  if (!hydrated) input.value = value ?? "";
 }
 
 function render(state) {
+  const serviceChanged = Boolean(token && token !== state.token);
+  if (serviceChanged) {
+    hydrated = false;
+    document.querySelectorAll(".check input").forEach((input) => { input.checked = false; });
+  }
   token = state.token;
   const device = state.device;
   const pill = $("#devicePill");
