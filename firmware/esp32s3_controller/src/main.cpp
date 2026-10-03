@@ -11,7 +11,7 @@
 
 namespace {
 
-constexpr char FIRMWARE_VERSION[] = "PARTGO-CONTROLLER-1.2.0";
+constexpr char FIRMWARE_VERSION[] = "PARTGO-CONTROLLER-1.2.1";
 constexpr char PROTOCOL_NAME[] = "partgo-serial-v1";
 constexpr int PROTOCOL_VERSION = 1;
 constexpr int CONFIG_VERSION = 5;
@@ -28,7 +28,9 @@ constexpr uint32_t E_ACTIVE_US = 20;
 constexpr uint32_t X_START_PERIOD_US = 50;
 constexpr uint32_t X_CRUISE_PERIOD_US = 17;
 constexpr uint32_t X_RAMP_PULSES = 2000;
-constexpr uint32_t E_PERIOD_US = 3333;
+constexpr uint32_t E_EXTEND_PERIOD_US = 3333;   // 300 pulse/s, unloaded docking.
+constexpr uint32_t E_RETRACT_PERIOD_US = 8000;  // 125 pulse/s, loaded box extraction.
+constexpr uint32_t E_MANUAL_PERIOD_US = 3333;
 constexpr uint32_t MOTION_TIMEOUT_MARGIN_MS = 5000;
 constexpr uint32_t MOTION_TIMEOUT_MAX_MS = 300000;
 constexpr uint32_t MANUAL_ARM_MS = 10000;
@@ -301,10 +303,11 @@ bool startAxis(char axis, int32_t targetUm) {
   motion.total = pulses;
   motion.targetUm = targetUm;
   motion.activeUs = axis == 'X' ? X_ACTIVE_US : E_ACTIVE_US;
-  motion.periodUs = axis == 'X' ? X_START_PERIOD_US : E_PERIOD_US;
+  motion.periodUs = axis == 'X' ? X_START_PERIOD_US
+                                : (delta > 0 ? E_EXTEND_PERIOD_US : E_RETRACT_PERIOD_US);
   motion.edgeAtUs = micros();
   motion.startedAtMs = millis();
-  const uint32_t nominalPeriod = axis == 'X' ? X_CRUISE_PERIOD_US : E_PERIOD_US;
+  const uint32_t nominalPeriod = axis == 'X' ? X_CRUISE_PERIOD_US : motion.periodUs;
   const uint64_t estimatedMs = static_cast<uint64_t>(pulses) * nominalPeriod / 1000 + MOTION_TIMEOUT_MARGIN_MS;
   motion.timeoutMs = static_cast<uint32_t>(estimatedMs > MOTION_TIMEOUT_MAX_MS ? MOTION_TIMEOUT_MAX_MS : estimatedMs);
   if (axis == 'X') {
@@ -324,7 +327,8 @@ void sendManualStatus() {
   Serial.printf(
       "%s mode=FINAL_MANUAL armed=%c moving=%c endstops=NONE homing=MANUAL "
       "Xscale=%lupulse/mm XdirHigh=%s XlongMax=20mm "
-      "Escale=%lupulse/mm EdirHigh=%s Erate=300pulse/s EmaxRawPulse=320 "
+      "Escale=%lupulse/mm EdirHigh=%s Eextend=300pulse/s Eretract=125pulse/s "
+      "EmaxRawPulse=320 "
       "state=%s position=%s NO_ENDSTOP_PROTECTION\n",
       FIRMWARE_VERSION, manualArmedAxis ? manualArmedAxis : '-',
       action == Action::MANUAL && motion.active ? motion.axis : '-',
@@ -380,11 +384,11 @@ void startManualE(long signedPulses) {
   motion.remaining = static_cast<uint32_t>(signedPulses > 0 ? signedPulses : -signedPulses);
   motion.total = motion.remaining;
   motion.activeUs = E_ACTIVE_US;
-  motion.periodUs = E_PERIOD_US;
+  motion.periodUs = E_MANUAL_PERIOD_US;
   motion.edgeAtUs = micros();
   motion.startedAtMs = millis();
   motion.timeoutMs = static_cast<uint32_t>(
-      static_cast<uint64_t>(motion.total) * E_PERIOD_US / 1000 + MOTION_TIMEOUT_MARGIN_MS);
+      static_cast<uint64_t>(motion.total) * E_MANUAL_PERIOD_US / 1000 + MOTION_TIMEOUT_MARGIN_MS);
   digitalWrite(E_DIR_PIN, signedPulses > 0 ? HIGH : LOW);
   digitalWrite(E_STEP_PIN, LOW);
   digitalWrite(E_ENABLE_PIN, LOW);
@@ -700,7 +704,10 @@ void tickMotion() {
       if (motion.axis == 'X') xPositionUm = motion.targetUm;
       else {
         ePositionUm = motion.targetUm;
-        digitalWrite(E_ENABLE_PIN, HIGH);
+        // Hold the docked position while X engages/releases the hook. Disable
+        // only after E is safely retracted; otherwise the small optical-drive
+        // motor can lose its position before the loaded pull begins.
+        if (ePositionUm == 0 || action == Action::MANUAL) digitalWrite(E_ENABLE_PIN, HIGH);
       }
       if (action == Action::MANUAL) stopManualMotion("PULSE_SEQUENCE_DONE_NOT_POSITION_FEEDBACK");
       else advancePlan();
