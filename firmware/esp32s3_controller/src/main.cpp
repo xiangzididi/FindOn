@@ -7,24 +7,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "e_axis.h"
 #include "machine_calibration.h"
 
 namespace {
 
-constexpr char FIRMWARE_VERSION[] = "PARTGO-CONTROLLER-1.3.2";
+constexpr char FIRMWARE_VERSION[] = "PARTGO-CONTROLLER-2.0.0";
 constexpr char PROTOCOL_NAME[] = "partgo-serial-v1";
 constexpr int PROTOCOL_VERSION = 1;
 constexpr int CONFIG_VERSION = 5;
 
 constexpr int X_STEP_PIN = 17;
 constexpr int X_DIR_PIN = 18;
-constexpr int E_STEP_PIN = 15;
-constexpr int E_DIR_PIN = 16;
-constexpr int E_ENABLE_PIN = 7;
-
-// PD42S1 STEP is wired common-anode: active LOW. A4988 STEP is active HIGH.
+// PD42S1 STEP is wired common-anode: active LOW.
 constexpr uint32_t X_ACTIVE_US = 5;
-constexpr uint32_t E_ACTIVE_US = 20;
 constexpr uint32_t X_START_PERIOD_US = 50;
 constexpr uint32_t X_CRUISE_PERIOD_US = 17;
 constexpr uint32_t X_RAMP_PULSES = 2000;
@@ -37,6 +33,24 @@ constexpr uint32_t MOTION_TIMEOUT_MAX_MS = 300000;
 constexpr uint32_t MANUAL_ARM_MS = 10000;
 constexpr uint32_t MANUAL_E_MIN_PULSES = 1;
 constexpr uint32_t MANUAL_E_MAX_PULSES = 320;
+
+constexpr partgo::EAxisConfig E_AXIS_CONFIG = {
+    15,                         // STEP
+    16,                         // DIR
+    7,                          // ENABLE, active LOW
+    E_DIR_HIGH_EXTENDS,
+    E_PULSES_PER_MM,
+    E_SCALE_DIVISOR,
+    20,                         // STEP high time, microseconds
+    MOTION_TIMEOUT_MARGIN_MS,
+    MOTION_TIMEOUT_MAX_MS,
+};
+
+static_assert((static_cast<uint64_t>(E_DOCK_UM) * E_PULSES_PER_MM +
+               500ULL * E_SCALE_DIVISOR) /
+                  (1000ULL * E_SCALE_DIVISOR) ==
+              960,
+              "48 mm E travel must equal 960 pulses");
 
 constexpr int32_t X_MIN_UM = 0;
 constexpr int32_t X_MAX_UM = 250000;
@@ -73,10 +87,8 @@ enum class Stage : uint8_t {
   RETURN_MOVE_PICKUP,
 };
 
-struct Motion {
+struct XMotion {
   bool active = false;
-  char axis = 0;
-  int stepPin = -1;
   uint32_t remaining = 0;
   uint32_t total = 0;
   uint32_t emitted = 0;
@@ -92,9 +104,9 @@ struct Motion {
 MachineState machineState = MachineState::CONFIG_LOCKED;
 Action action = Action::NONE;
 Stage stage = Stage::NONE;
-Motion motion;
+XMotion xMotion;
+partgo::EAxisController eAxis(E_AXIS_CONFIG);
 int32_t xPositionUm = 0;
-int32_t ePositionUm = 0;
 bool referenced = false;
 uint32_t eventSequence = 0;
 char activeTaskId[65] = "";
@@ -105,6 +117,7 @@ char inputLine[768];
 size_t inputUsed = 0;
 bool droppingInput = false;
 char manualArmedAxis = 0;
+char manualMotionAxis = 0;
 uint32_t manualArmedAtMs = 0;
 
 const char *stateName(MachineState value) {
@@ -244,22 +257,23 @@ void clearTask() {
 
 void setSafeOutputs() {
   digitalWrite(X_STEP_PIN, HIGH);
-  digitalWrite(E_STEP_PIN, LOW);
-  digitalWrite(E_ENABLE_PIN, HIGH);
+  eAxis.stopAndDisable();
 }
 
 void invalidateReferenceAfterManualMotion() {
   referenced = false;
   xPositionUm = 0;
-  ePositionUm = 0;
+  eAxis.invalidatePosition();
   machineState = motionConfigured() ? MachineState::UNREFERENCED : MachineState::CONFIG_LOCKED;
 }
 
 void stopManualMotion(const char *reason) {
-  const uint32_t emitted = motion.emitted;
+  const uint32_t emitted = manualMotionAxis == 'E' ? eAxis.emittedPulses()
+                                                    : xMotion.emitted;
   setSafeOutputs();
-  motion.active = false;
+  xMotion.active = false;
   manualArmedAxis = 0;
+  manualMotionAxis = 0;
   invalidateReferenceAfterManualMotion();
   clearTask();
   Serial.printf("STOP reason=%s emitted_pulses=%lu position=UNREFERENCED\n",
@@ -268,7 +282,8 @@ void stopManualMotion(const char *reason) {
 
 void failTask(const char *error) {
   setSafeOutputs();
-  motion.active = false;
+  xMotion.active = false;
+  eAxis.invalidatePosition();
   referenced = false;
   machineState = motionConfigured() ? MachineState::RECOVERY_REQUIRED : MachineState::CONFIG_LOCKED;
   sendResult(false, error);
@@ -277,12 +292,9 @@ void failTask(const char *error) {
   clearTask();
 }
 
-uint32_t pulsesFor(char axis, int32_t deltaUm) {
+uint32_t xPulsesFor(int32_t deltaUm) {
   const uint64_t magnitude = static_cast<uint64_t>(deltaUm < 0 ? -static_cast<int64_t>(deltaUm) : deltaUm);
-  if (axis == 'X') return static_cast<uint32_t>((magnitude * X_PULSES_PER_MM + 500) / 1000);
-  const uint64_t numerator = magnitude * E_PULSES_PER_MM;
-  const uint64_t denominator = 1000ULL * E_SCALE_DIVISOR;
-  return static_cast<uint32_t>((numerator + denominator / 2) / denominator);
+  return static_cast<uint32_t>((magnitude * X_PULSES_PER_MM + 500) / 1000);
 }
 
 uint32_t xPeriodForPulse(uint32_t emitted, uint32_t total) {
@@ -294,39 +306,40 @@ uint32_t xPeriodForPulse(uint32_t emitted, uint32_t total) {
   return X_START_PERIOD_US - drop;
 }
 
-bool startAxis(char axis, int32_t targetUm) {
-  const int32_t current = axis == 'X' ? xPositionUm : ePositionUm;
-  const int32_t delta = targetUm - current;
-  const uint32_t pulses = pulsesFor(axis, delta);
+bool startXAbsolute(int32_t targetUm) {
+  const int32_t delta = targetUm - xPositionUm;
+  const uint32_t pulses = xPulsesFor(delta);
   if (!pulses) {
-    if (axis == 'X') xPositionUm = targetUm; else ePositionUm = targetUm;
+    xPositionUm = targetUm;
     return false;
   }
-  motion = {};
-  motion.active = true;
-  motion.axis = axis;
-  motion.stepPin = axis == 'X' ? X_STEP_PIN : E_STEP_PIN;
-  motion.remaining = pulses;
-  motion.total = pulses;
-  motion.targetUm = targetUm;
-  motion.activeUs = axis == 'X' ? X_ACTIVE_US : E_ACTIVE_US;
-  motion.periodUs = axis == 'X' ? X_START_PERIOD_US
-                                : (delta > 0 ? E_EXTEND_PERIOD_US : E_RETRACT_PERIOD_US);
-  motion.edgeAtUs = micros();
-  motion.startedAtMs = millis();
-  const uint32_t nominalPeriod = axis == 'X' ? X_CRUISE_PERIOD_US : motion.periodUs;
+  xMotion = {};
+  xMotion.active = true;
+  xMotion.remaining = pulses;
+  xMotion.total = pulses;
+  xMotion.targetUm = targetUm;
+  xMotion.activeUs = X_ACTIVE_US;
+  xMotion.periodUs = X_START_PERIOD_US;
+  xMotion.edgeAtUs = micros();
+  xMotion.startedAtMs = millis();
+  const uint32_t nominalPeriod = X_CRUISE_PERIOD_US;
   const uint64_t estimatedMs = static_cast<uint64_t>(pulses) * nominalPeriod / 1000 + MOTION_TIMEOUT_MARGIN_MS;
-  motion.timeoutMs = static_cast<uint32_t>(estimatedMs > MOTION_TIMEOUT_MAX_MS ? MOTION_TIMEOUT_MAX_MS : estimatedMs);
-  if (axis == 'X') {
-    const bool directionHigh = (delta > 0) == X_DIR_HIGH_MOVES_RIGHT;
-    digitalWrite(X_DIR_PIN, directionHigh ? HIGH : LOW);
-    digitalWrite(X_STEP_PIN, HIGH);
-  } else {
-    const bool directionHigh = (delta > 0) == E_DIR_HIGH_EXTENDS;
-    digitalWrite(E_DIR_PIN, directionHigh ? HIGH : LOW);
-    digitalWrite(E_STEP_PIN, LOW);
-    digitalWrite(E_ENABLE_PIN, LOW);
-  }
+  xMotion.timeoutMs = static_cast<uint32_t>(estimatedMs > MOTION_TIMEOUT_MAX_MS ? MOTION_TIMEOUT_MAX_MS : estimatedMs);
+  const bool directionHigh = (delta > 0) == X_DIR_HIGH_MOVES_RIGHT;
+  digitalWrite(X_DIR_PIN, directionHigh ? HIGH : LOW);
+  digitalWrite(X_STEP_PIN, HIGH);
+  return true;
+}
+
+bool startEAbsolute(int32_t targetUm, uint32_t periodUs,
+                    bool holdAfterCompletion) {
+  const auto result = eAxis.startAbsolute(targetUm, periodUs,
+                                          holdAfterCompletion);
+  if (result == partgo::EAxisStartResult::STARTED) return true;
+  if (result == partgo::EAxisStartResult::ALREADY_AT_TARGET) return false;
+  failTask(result == partgo::EAxisStartResult::POSITION_UNKNOWN
+               ? "E_POSITION_UNKNOWN"
+               : "E_AXIS_START_FAILED");
   return true;
 }
 
@@ -335,10 +348,11 @@ void sendManualStatus() {
       "%s mode=FINAL_MANUAL armed=%c moving=%c endstops=NONE homing=MANUAL "
       "Xscale=%lupulse/mm XdirHigh=%s XlongMax=20mm "
       "Escale=%lu/%lupulse/mm Emicrostep=FULL EdirHigh=%s "
-      "Eextend=300pulse/s Eretract=125pulse/s EmaxRawPulse=320 "
+      "Econtroller=DEDICATED_V2 Eextend=300pulse/s Eretract=125pulse/s EmaxRawPulse=320 "
       "state=%s position=%s NO_ENDSTOP_PROTECTION\n",
       FIRMWARE_VERSION, manualArmedAxis ? manualArmedAxis : '-',
-      action == Action::MANUAL && motion.active ? motion.axis : '-',
+      action == Action::MANUAL && xMotion.active ? 'X'
+          : action == Action::MANUAL && eAxis.busy() ? 'E' : '-',
       static_cast<unsigned long>(X_PULSES_PER_MM),
       X_DIR_HIGH_MOVES_RIGHT ? "RIGHT" : "LEFT",
       static_cast<unsigned long>(E_PULSES_PER_MM),
@@ -348,7 +362,7 @@ void sendManualStatus() {
 }
 
 bool manualAvailable() {
-  if (action != Action::NONE || motion.active) {
+  if (action != Action::NONE || xMotion.active || eAxis.busy()) {
     Serial.println("REJECT BUSY");
     return false;
   }
@@ -370,39 +384,32 @@ bool consumeManualArm(char axis) {
 void startManualX(float mm) {
   invalidateReferenceAfterManualMotion();
   action = Action::MANUAL;
+  manualMotionAxis = 'X';
   const int32_t deltaUm = static_cast<int32_t>(lroundf(mm * 1000.0f));
-  if (!startAxis('X', deltaUm)) {
+  if (!startXAbsolute(deltaUm)) {
     stopManualMotion("ZERO_DISTANCE");
     return;
   }
   Serial.printf(
       "START TRAVEL X distance=%.3fmm pulses=%lu DIR=%s "
       "NO_ENDSTOP_PROTECTION\n",
-      mm, static_cast<unsigned long>(motion.total),
+      mm, static_cast<unsigned long>(xMotion.total),
       digitalRead(X_DIR_PIN) == HIGH ? "HIGH" : "LOW");
 }
 
 void startManualE(long signedPulses) {
   invalidateReferenceAfterManualMotion();
   action = Action::MANUAL;
-  motion = {};
-  motion.active = true;
-  motion.axis = 'E';
-  motion.stepPin = E_STEP_PIN;
-  motion.remaining = static_cast<uint32_t>(signedPulses > 0 ? signedPulses : -signedPulses);
-  motion.total = motion.remaining;
-  motion.activeUs = E_ACTIVE_US;
-  motion.periodUs = E_MANUAL_PERIOD_US;
-  motion.edgeAtUs = micros();
-  motion.startedAtMs = millis();
-  motion.timeoutMs = static_cast<uint32_t>(
-      static_cast<uint64_t>(motion.total) * E_MANUAL_PERIOD_US / 1000 + MOTION_TIMEOUT_MARGIN_MS);
-  digitalWrite(E_DIR_PIN, signedPulses > 0 ? HIGH : LOW);
-  digitalWrite(E_STEP_PIN, LOW);
-  digitalWrite(E_ENABLE_PIN, LOW);
+  manualMotionAxis = 'E';
+  const auto result = eAxis.startRawSigned(static_cast<int32_t>(signedPulses),
+                                           E_MANUAL_PERIOD_US);
+  if (result != partgo::EAxisStartResult::STARTED) {
+    stopManualMotion("E_AXIS_START_FAILED");
+    return;
+  }
   Serial.printf("START E raw_pulses=%lu DIR=%s SCALE=%lu/%lupulse/mm MICROSTEP=FULL NO_ENDSTOP_PROTECTION\n",
-                static_cast<unsigned long>(motion.total),
-                signedPulses > 0 ? "HIGH" : "LOW",
+                static_cast<unsigned long>(eAxis.commandedPulses()),
+                eAxis.directionPinHigh() ? "HIGH" : "LOW",
                 static_cast<unsigned long>(E_PULSES_PER_MM),
                 static_cast<unsigned long>(E_SCALE_DIVISOR));
 }
@@ -418,11 +425,14 @@ void handleManualCommand(char *input) {
     else {
       setSafeOutputs();
       manualArmedAxis = 0;
+      referenced = false;
+      machineState = motionConfigured() ? MachineState::UNREFERENCED
+                                        : MachineState::CONFIG_LOCKED;
       Serial.println("STOP reason=COMMAND emitted_pulses=0 position=UNREFERENCED");
     }
     return;
   }
-  if (action == Action::MANUAL || motion.active) {
+  if (action == Action::MANUAL || xMotion.active || eAxis.busy()) {
     stopManualMotion("COMMAND_DURING_MOTION");
     return;
   }
@@ -489,34 +499,37 @@ void advancePlan() {
     case Stage::FETCH_MOVE_SLOT:
       snprintf(fields, sizeof(fields), "\"slot_id\":\"%s\",\"x_in_position\":true,\"x_um\":%ld", activeSlotId, static_cast<long>(xPositionUm));
       sendEvent("SLOT_REACHED", fields);
-      sendEvent("DOCKING", "\"axis\":\"E\"");
+      snprintf(fields, sizeof(fields),
+               "\"axis\":\"E\",\"direction\":\"POSITIVE\",\"signed_pulses\":%lu",
+               static_cast<unsigned long>(eAxis.pulsesForDistanceUm(E_DOCK_UM)));
+      sendEvent("DOCKING", fields);
       stage = Stage::FETCH_EXTEND;
-      if (!startAxis('E', E_DOCK_UM)) advancePlan();
+      if (!startEAbsolute(E_DOCK_UM, E_EXTEND_PERIOD_US, true)) advancePlan();
       break;
     case Stage::FETCH_EXTEND:
-      snprintf(fields, sizeof(fields), "\"axis_in_position\":true,\"e_um\":%ld", static_cast<long>(ePositionUm));
+      snprintf(fields, sizeof(fields), "\"axis_in_position\":true,\"e_um\":%ld", static_cast<long>(eAxis.positionUm()));
       sendEvent("DOCK_REACHED", fields);
       snprintf(fields, sizeof(fields), "\"axis\":\"X\",\"direction\":\"RIGHT\",\"shift_um\":%ld", static_cast<long>(X_HOOK_SHIFT_UM));
       sendEvent("HOOK_SHIFTING", fields);
       stage = Stage::FETCH_HOOK_SHIFT;
-      if (!startAxis('X', slot->xUm + X_HOOK_SHIFT_UM)) advancePlan();
+      if (!startXAbsolute(slot->xUm + X_HOOK_SHIFT_UM)) advancePlan();
       break;
     case Stage::FETCH_HOOK_SHIFT:
       snprintf(fields, sizeof(fields), "\"x_in_position\":true,\"hook_engaged\":true,\"x_um\":%ld", static_cast<long>(xPositionUm));
       sendEvent("HOOK_ENGAGED", fields);
       snprintf(fields, sizeof(fields),
                "\"axis\":\"E\",\"direction\":\"NEGATIVE\",\"signed_pulses\":-%lu",
-               static_cast<unsigned long>(pulsesFor('E', E_DOCK_UM)));
+               static_cast<unsigned long>(eAxis.pulsesForDistanceUm(E_DOCK_UM)));
       sendEvent("PULLING", fields);
       stage = Stage::FETCH_RETRACT;
-      if (!startAxis('E', 0)) advancePlan();
+      if (!startEAbsolute(0, E_RETRACT_PERIOD_US, false)) advancePlan();
       break;
     case Stage::FETCH_RETRACT:
       sendEvent("EXTRACTION_REACHED", "\"axis_in_position\":true,\"axis_endpoint\":\"RETRACTED\",\"e_um\":0");
       sendEvent("TRANSFER_READY", "\"motion_complete\":true,\"e_clear\":true");
       sendEvent("MOVING_TO_PICKUP", "\"axis\":\"X\"");
       stage = Stage::FETCH_MOVE_PICKUP;
-      if (!startAxis('X', 0)) advancePlan();
+      if (!startXAbsolute(0)) advancePlan();
       break;
     case Stage::FETCH_MOVE_PICKUP:
       sendEvent("PICKUP_REACHED", "\"x_in_position\":true,\"location\":\"PICKUP\",\"x_um\":0");
@@ -525,29 +538,35 @@ void advancePlan() {
     case Stage::RETURN_MOVE_HOOKED_SLOT:
       snprintf(fields, sizeof(fields), "\"slot_id\":\"%s\",\"x_in_position\":true,\"x_um\":%ld", activeSlotId, static_cast<long>(xPositionUm));
       sendEvent("SLOT_REACHED", fields);
-      sendEvent("PUSHING", "\"axis\":\"E\"");
+      snprintf(fields, sizeof(fields),
+               "\"axis\":\"E\",\"direction\":\"POSITIVE\",\"signed_pulses\":%lu",
+               static_cast<unsigned long>(eAxis.pulsesForDistanceUm(E_DOCK_UM)));
+      sendEvent("PUSHING", fields);
       stage = Stage::RETURN_EXTEND;
-      if (!startAxis('E', E_DOCK_UM)) advancePlan();
+      if (!startEAbsolute(E_DOCK_UM, E_EXTEND_PERIOD_US, true)) advancePlan();
       break;
     case Stage::RETURN_EXTEND:
       sendEvent("INSERTION_REACHED", "\"axis_in_position\":true,\"axis_endpoint\":\"EXTENDED\"");
       snprintf(fields, sizeof(fields), "\"axis\":\"X\",\"direction\":\"LEFT\",\"shift_um\":%ld", static_cast<long>(X_HOOK_SHIFT_UM));
       sendEvent("UNHOOKING", fields);
       stage = Stage::RETURN_UNHOOK_SHIFT;
-      if (!startAxis('X', slot->xUm)) advancePlan();
+      if (!startXAbsolute(slot->xUm)) advancePlan();
       break;
     case Stage::RETURN_UNHOOK_SHIFT:
       snprintf(fields, sizeof(fields), "\"x_in_position\":true,\"hook_released\":true,\"x_um\":%ld", static_cast<long>(xPositionUm));
       sendEvent("HOOK_RELEASED", fields);
-      sendEvent("RETRACTING", "\"axis\":\"E\"");
+      snprintf(fields, sizeof(fields),
+               "\"axis\":\"E\",\"direction\":\"NEGATIVE\",\"signed_pulses\":-%lu",
+               static_cast<unsigned long>(eAxis.pulsesForDistanceUm(E_DOCK_UM)));
+      sendEvent("RETRACTING", fields);
       stage = Stage::RETURN_RETRACT;
-      if (!startAxis('E', 0)) advancePlan();
+      if (!startEAbsolute(0, E_RETRACT_PERIOD_US, false)) advancePlan();
       break;
     case Stage::RETURN_RETRACT:
       sendEvent("E_CLEAR", "\"e_clear\":true,\"e_um\":0");
       sendEvent("MOVING_TO_PICKUP", "\"axis\":\"X\"");
       stage = Stage::RETURN_MOVE_PICKUP;
-      if (!startAxis('X', 0)) advancePlan();
+      if (!startXAbsolute(0)) advancePlan();
       break;
     case Stage::RETURN_MOVE_PICKUP:
       sendEvent("PICKUP_REACHED", "\"x_in_position\":true,\"location\":\"PICKUP\",\"x_um\":0");
@@ -569,7 +588,7 @@ void startReference(const char *taskId) {
   sendAck(taskId, true);
   sendEvent("REFERENCE_ACCEPTED", "\"manual_reference_confirmed\":true");
   xPositionUm = 0;
-  ePositionUm = 0;
+  eAxis.referenceRetracted();
   referenced = true;
   machineState = MachineState::READY;
   sendEvent("HOME_CONFIRMED", "\"homed\":true,\"home_reference_valid\":true,\"x_um\":0,\"e_um\":0");
@@ -595,7 +614,7 @@ void startBusinessTask(const char *taskId, Action nextAction, const SlotConfig &
     stage = Stage::RETURN_MOVE_HOOKED_SLOT;
   }
   const int32_t targetX = nextAction == Action::FETCH ? slot.xUm : slot.xUm + X_HOOK_SHIFT_UM;
-  if (!startAxis('X', targetX)) advancePlan();
+  if (!startXAbsolute(targetX)) advancePlan();
 }
 
 void handleCommand(const char *json) {
@@ -620,7 +639,12 @@ void handleCommand(const char *json) {
     manualArmedAxis = 0;
     if (action == Action::MANUAL) stopManualMotion("STOP_REQUESTED");
     else if (action != Action::NONE) failTask("STOP_REQUESTED");
-    else setSafeOutputs();
+    else {
+      setSafeOutputs();
+      referenced = false;
+      machineState = motionConfigured() ? MachineState::UNREFERENCED
+                                        : MachineState::CONFIG_LOCKED;
+    }
     return;
   }
   if (strcmp(type, "command")) {
@@ -666,6 +690,12 @@ void handleCommand(const char *json) {
     sendAck(taskId, false, "REFERENCE_REQUIRED");
     return;
   }
+  if (!eAxis.positionKnown() || eAxis.positionUm() != 0) {
+    referenced = false;
+    machineState = MachineState::RECOVERY_REQUIRED;
+    sendAck(taskId, false, "E_CLEAR_REQUIRED");
+    return;
+  }
   bool areaClear = false;
   if (!jsonBool(json, "area_clear", areaClear) || !areaClear) {
     sendAck(taskId, false, "AREA_NOT_CLEAR");
@@ -700,55 +730,62 @@ void handleCommand(const char *json) {
 }
 
 void tickMotion() {
-  if (!motion.active) return;
-  if (uint32_t(millis() - motion.startedAtMs) > motion.timeoutMs) {
-    if (action == Action::MANUAL) stopManualMotion("TIMEOUT");
-    else failTask("MOTION_TIMEOUT");
-    return;
-  }
-  const uint32_t current = micros();
-  if (motion.pulseActive) {
-    if (uint32_t(current - motion.edgeAtUs) < motion.activeUs) return;
-    digitalWrite(motion.stepPin, motion.axis == 'X' ? HIGH : LOW);
-    motion.pulseActive = false;
-    motion.edgeAtUs = current;
-    if (!motion.remaining) {
-      motion.active = false;
-      if (motion.axis == 'X') xPositionUm = motion.targetUm;
-      else {
-        ePositionUm = motion.targetUm;
-        // Hold the docked position while X engages/releases the hook. Disable
-        // only after E is safely retracted; otherwise the small optical-drive
-        // motor can lose its position before the loaded pull begins.
-        if (ePositionUm == 0 || action == Action::MANUAL) digitalWrite(E_ENABLE_PIN, HIGH);
-      }
-      if (action == Action::MANUAL) stopManualMotion("PULSE_SEQUENCE_DONE_NOT_POSITION_FEEDBACK");
-      else advancePlan();
+  if (xMotion.active) {
+    if (uint32_t(millis() - xMotion.startedAtMs) > xMotion.timeoutMs) {
+      if (action == Action::MANUAL) stopManualMotion("TIMEOUT");
+      else failTask("X_MOTION_TIMEOUT");
+      return;
     }
-    return;
+    const uint32_t current = micros();
+    if (xMotion.pulseActive) {
+      if (uint32_t(current - xMotion.edgeAtUs) >= xMotion.activeUs) {
+        digitalWrite(X_STEP_PIN, HIGH);
+        xMotion.pulseActive = false;
+        xMotion.edgeAtUs = current;
+        if (!xMotion.remaining) {
+          xMotion.active = false;
+          xPositionUm = xMotion.targetUm;
+          if (action == Action::MANUAL) {
+            stopManualMotion("PULSE_SEQUENCE_DONE_NOT_POSITION_FEEDBACK");
+          } else {
+            advancePlan();
+          }
+        }
+      }
+    } else {
+      xMotion.periodUs = xPeriodForPulse(xMotion.emitted, xMotion.total);
+      if (uint32_t(current - xMotion.edgeAtUs) >=
+          xMotion.periodUs - xMotion.activeUs) {
+        digitalWrite(X_STEP_PIN, LOW);
+        xMotion.pulseActive = true;
+        xMotion.edgeAtUs = current;
+        --xMotion.remaining;
+        ++xMotion.emitted;
+      }
+    }
   }
-  if (motion.axis == 'X') motion.periodUs = xPeriodForPulse(motion.emitted, motion.total);
-  if (uint32_t(current - motion.edgeAtUs) < motion.periodUs - motion.activeUs) return;
-  digitalWrite(motion.stepPin, motion.axis == 'X' ? LOW : HIGH);
-  motion.pulseActive = true;
-  motion.edgeAtUs = current;
-  --motion.remaining;
-  ++motion.emitted;
+
+  const auto eResult = eAxis.tick();
+  if (eResult == partgo::EAxisTickResult::TIMED_OUT) {
+    if (action == Action::MANUAL) stopManualMotion("TIMEOUT");
+    else failTask("E_MOTION_TIMEOUT");
+  } else if (eResult == partgo::EAxisTickResult::COMPLETED) {
+    if (action == Action::MANUAL) {
+      stopManualMotion("PULSE_SEQUENCE_DONE_NOT_POSITION_FEEDBACK");
+    } else {
+      advancePlan();
+    }
+  }
 }
 
 }  // namespace
 
 void setup() {
-  digitalWrite(E_ENABLE_PIN, HIGH);
-  pinMode(E_ENABLE_PIN, OUTPUT);
   digitalWrite(X_STEP_PIN, HIGH);
   pinMode(X_STEP_PIN, OUTPUT);
-  digitalWrite(E_STEP_PIN, LOW);
-  pinMode(E_STEP_PIN, OUTPUT);
   digitalWrite(X_DIR_PIN, LOW);
   pinMode(X_DIR_PIN, OUTPUT);
-  digitalWrite(E_DIR_PIN, LOW);
-  pinMode(E_DIR_PIN, OUTPUT);
+  eAxis.begin();
   Serial.begin(115200);
   machineState = motionConfigured() ? MachineState::UNREFERENCED : MachineState::CONFIG_LOCKED;
 }
@@ -765,7 +802,12 @@ void loop() {
     if (ch == '!') {
       if (action == Action::MANUAL) stopManualMotion("IMMEDIATE_STOP");
       else if (action != Action::NONE) failTask("IMMEDIATE_STOP");
-      else setSafeOutputs();
+      else {
+        setSafeOutputs();
+        referenced = false;
+        machineState = motionConfigured() ? MachineState::UNREFERENCED
+                                          : MachineState::CONFIG_LOCKED;
+      }
       manualArmedAxis = 0;
       inputUsed = 0;
       droppingInput = true;

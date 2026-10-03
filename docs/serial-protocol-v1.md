@@ -73,7 +73,7 @@
 ### 握手与状态
 
 ```json
-{"v":1,"type":"hello","request_id":"boot-01","protocol":"partgo-serial-v1","node":"ESP32-S3","firmware":"PARTGO-CONTROLLER-1.3.2","state":"CONFIG_LOCKED","motion_configured":false,"referenced":false,"busy":false,"config_version":5,"layout":{"rows":2,"columns":2,"has_y_axis":false},"calibration":{"x_pulse_per_mm":20000,"e_pulse_per_mm":20.0000,"e_scale_numerator":20,"e_scale_denominator":1,"e_driver_microsteps":1,"e_dock_um":48000,"x_hook_shift_um":4500},"slots":[{"id":"S01","enabled":true,"calibrated":false},{"id":"S02","enabled":true,"calibrated":false},{"id":"S03","enabled":false,"calibrated":false},{"id":"S04","enabled":false,"calibrated":false}]}
+{"v":1,"type":"hello","request_id":"boot-01","protocol":"partgo-serial-v1","node":"ESP32-S3","firmware":"PARTGO-CONTROLLER-2.0.0","state":"CONFIG_LOCKED","motion_configured":false,"referenced":false,"busy":false,"config_version":5,"layout":{"rows":2,"columns":2,"has_y_axis":false},"calibration":{"x_pulse_per_mm":20000,"e_pulse_per_mm":20.0000,"e_scale_numerator":20,"e_scale_denominator":1,"e_driver_microsteps":1,"e_dock_um":48000,"x_hook_shift_um":4500},"slots":[{"id":"S01","enabled":true,"calibrated":false},{"id":"S02","enabled":true,"calibrated":false},{"id":"S03","enabled":false,"calibrated":false},{"id":"S04","enabled":false,"calibrated":false}]}
 ```
 
 `status` 响应字段相同，只把 `type` 改为 `status`。`motion_configured=false` 时，本机页面显示“待标定”，并禁用自动取还件。
@@ -92,7 +92,7 @@
 {"v":1,"type":"ack","task_id":"task-fetch-01","accepted":false,"error":"CONFIG_LOCKED"}
 ```
 
-常见错误码：`INVALID_MESSAGE`、`PROTOCOL_VERSION`、`CONFIG_VERSION`、`CONFIG_LOCKED`、`REFERENCE_REQUIRED`、`BUSY`、`UNKNOWN_SLOT`、`SLOT_DISABLED`、`Y_AXIS_REQUIRED`、`AREA_NOT_CLEAR`、`MANUAL_REFERENCE_REQUIRED`、`DUPLICATE_TASK_ID`。
+常见错误码：`INVALID_MESSAGE`、`PROTOCOL_VERSION`、`CONFIG_VERSION`、`CONFIG_LOCKED`、`REFERENCE_REQUIRED`、`E_CLEAR_REQUIRED`、`E_POSITION_UNKNOWN`、`E_AXIS_START_FAILED`、`E_MOTION_TIMEOUT`、`BUSY`、`UNKNOWN_SLOT`、`SLOT_DISABLED`、`Y_AXIS_REQUIRED`、`AREA_NOT_CLEAR`、`MANUAL_REFERENCE_REQUIRED`、`DUPLICATE_TASK_ID`。
 
 ### 阶段事件
 
