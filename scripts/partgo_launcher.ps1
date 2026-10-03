@@ -14,20 +14,26 @@ $modeKey = $Mode.ToLowerInvariant()
 $httpPort = if ($Mode -eq "Calibration") { 3212 } else { 3210 }
 $url = "http://127.0.0.1:$httpPort/"
 
+function Resolve-PartGoPython {
+  $candidates = [System.Collections.Generic.List[string]]::new()
+  $candidates.Add((Join-Path $env:USERPROFILE ".platformio\penv\Scripts\python.exe"))
+  $systemPython = Get-Command python -ErrorAction SilentlyContinue
+  if ($systemPython) { $candidates.Add($systemPython.Source) }
+
+  foreach ($candidate in $candidates) {
+    if (-not (Test-Path -LiteralPath $candidate)) { continue }
+    & $candidate -c "import serial" *> $null
+    if ($LASTEXITCODE -eq 0) { return $candidate }
+  }
+  throw "找不到已安装 pyserial 的 Python；请运行 python -m pip install -r requirements.txt"
+}
+
+$serialPython = Resolve-PartGoPython
+
 function Resolve-PartGoCommand {
   if ($Mode -eq "Calibration") {
-    # Use PlatformIO's real interpreter. The penv Scripts\python.exe launcher
-    # creates a second process, which can retain COM12 after the recorded PID
-    # is stopped.
-    $python = Join-Path $env:USERPROFILE ".platformio\python3\python.exe"
-    if (-not (Test-Path -LiteralPath $python)) {
-      $python = Join-Path $env:USERPROFILE ".platformio\penv\Scripts\python.exe"
-    }
-    if (-not (Test-Path -LiteralPath $python)) {
-      $python = (Get-Command python -ErrorAction Stop).Source
-    }
     return @{
-      FilePath = $python
+      FilePath = $serialPython
       Arguments = @(
         (Join-Path $root "scripts\calibration_server.py"),
         "--serial-port", $Port,
@@ -85,6 +91,7 @@ if ($Mode -eq "Management") {
   $env:PARTGO_DEVICE_MODE = "hardware"
   $env:PARTGO_SERIAL_PORT = $Port
   $env:PARTGO_SERIAL_BAUD = "115200"
+  $env:PARTGO_PYTHON = $serialPython
 }
 
 $stdoutPath = Join-Path $runtime "$modeKey.stdout.log"

@@ -153,6 +153,11 @@ class CalibrationService:
             if self.serial is None:
                 try:
                     self.serial = serial.Serial(self.port, self.baud, timeout=0.2, write_timeout=1)
+                    # Opening the ESP32-S3 USB serial port can reset the board.
+                    # Wait for setup() before sending the first command and drop
+                    # boot fragments so STATUS is not parsed as a partial line.
+                    time.sleep(1.2)
+                    self.serial.reset_input_buffer()
                     self.connected = True
                     self.error = None
                     self._log("SYSTEM", f"已连接 {self.port}")
