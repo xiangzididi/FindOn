@@ -9,6 +9,8 @@
   },
   "e": {
     "pulses_per_mm": 21,
+    "calibrated_microsteps": 16,
+    "driver_microsteps": 1,
     "calibrated": true,
     "dir_high_motion": "EXTEND",
     "dock_mm": 48.0

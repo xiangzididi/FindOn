@@ -11,7 +11,7 @@
 
 namespace {
 
-constexpr char FIRMWARE_VERSION[] = "PARTGO-CONTROLLER-1.2.2";
+constexpr char FIRMWARE_VERSION[] = "PARTGO-CONTROLLER-1.3.0";
 constexpr char PROTOCOL_NAME[] = "partgo-serial-v1";
 constexpr int PROTOCOL_VERSION = 1;
 constexpr int CONFIG_VERSION = 5;
@@ -28,13 +28,16 @@ constexpr uint32_t E_ACTIVE_US = 20;
 constexpr uint32_t X_START_PERIOD_US = 50;
 constexpr uint32_t X_CRUISE_PERIOD_US = 17;
 constexpr uint32_t X_RAMP_PULSES = 2000;
-constexpr uint32_t E_EXTEND_PERIOD_US = 3333;   // 300 pulse/s, unloaded docking.
-constexpr uint32_t E_RETRACT_PERIOD_US = 16667; // 60 pulse/s, loaded box extraction.
-constexpr uint32_t E_MANUAL_PERIOD_US = 3333;
+// E was calibrated at 1/16 microstep (21 pulse/mm) and now runs in full-step
+// mode. These periods preserve the former 300/125 microstep/s linear speeds.
+constexpr uint32_t E_EXTEND_PERIOD_US = 53333;  // 18.75 full-step/s.
+constexpr uint32_t E_RETRACT_PERIOD_US = 128000; // 7.8125 full-step/s, loaded pull.
+constexpr uint32_t E_MANUAL_PERIOD_US = 53333;
 constexpr uint32_t MOTION_TIMEOUT_MARGIN_MS = 5000;
 constexpr uint32_t MOTION_TIMEOUT_MAX_MS = 300000;
 constexpr uint32_t MANUAL_ARM_MS = 10000;
-constexpr uint32_t MANUAL_E_MAX_PULSES = 320;
+constexpr uint32_t MANUAL_E_MIN_PULSES = 1;
+constexpr uint32_t MANUAL_E_MAX_PULSES = 64;
 
 constexpr int32_t X_MIN_UM = 0;
 constexpr int32_t X_MAX_UM = 250000;
@@ -118,7 +121,8 @@ const char *stateName(MachineState value) {
 }
 
 bool motionConfigured() {
-  if (!X_PULSES_PER_MM || !E_PULSES_PER_MM || E_DOCK_UM <= 0 || E_DOCK_UM > 50000 ||
+  if (!X_PULSES_PER_MM || !E_PULSES_PER_MM || !E_CALIBRATION_MICROSTEPS ||
+      !E_DRIVER_MICROSTEPS || E_DOCK_UM <= 0 || E_DOCK_UM > 50000 ||
       X_HOOK_SHIFT_UM <= 0 || X_HOOK_SHIFT_UM > 20000) return false;
   for (const auto &slot : SLOTS) {
     if (!slot.enabled) continue;
@@ -215,9 +219,13 @@ void sendStatus(const char *type, const char *requestId) {
                 type, requestId, PROTOCOL_NAME, FIRMWARE_VERSION, stateName(machineState),
                 configured ? "true" : "false", referenced ? "true" : "false",
                 action == Action::NONE ? "false" : "true", CONFIG_VERSION);
-  Serial.printf("\"layout\":{\"rows\":2,\"columns\":2,\"has_y_axis\":%s},\"calibration\":{\"x_pulse_per_mm\":%lu,\"e_pulse_per_mm\":%lu,\"e_dock_um\":%ld,\"x_hook_shift_um\":%ld},\"slots\":[",
+  Serial.printf("\"layout\":{\"rows\":2,\"columns\":2,\"has_y_axis\":%s},\"calibration\":{\"x_pulse_per_mm\":%lu,\"e_pulse_per_mm\":%.4f,\"e_scale_numerator\":%lu,\"e_scale_denominator\":%lu,\"e_driver_microsteps\":%lu,\"e_dock_um\":%ld,\"x_hook_shift_um\":%ld},\"slots\":[",
                 HAS_Y_AXIS ? "true" : "false", static_cast<unsigned long>(X_PULSES_PER_MM),
-                static_cast<unsigned long>(E_PULSES_PER_MM), static_cast<long>(E_DOCK_UM),
+                static_cast<double>(E_PULSES_PER_MM) * E_DRIVER_MICROSTEPS /
+                    E_CALIBRATION_MICROSTEPS,
+                static_cast<unsigned long>(E_PULSES_PER_MM * E_DRIVER_MICROSTEPS),
+                static_cast<unsigned long>(E_CALIBRATION_MICROSTEPS),
+                static_cast<unsigned long>(E_DRIVER_MICROSTEPS), static_cast<long>(E_DOCK_UM),
                 static_cast<long>(X_HOOK_SHIFT_UM));
   for (size_t i = 0; i < sizeof(SLOTS) / sizeof(SLOTS[0]); ++i) {
     const auto &slot = SLOTS[i];
@@ -273,9 +281,11 @@ void failTask(const char *error) {
 }
 
 uint32_t pulsesFor(char axis, int32_t deltaUm) {
-  const uint32_t scale = axis == 'X' ? X_PULSES_PER_MM : E_PULSES_PER_MM;
   const uint64_t magnitude = static_cast<uint64_t>(deltaUm < 0 ? -static_cast<int64_t>(deltaUm) : deltaUm);
-  return static_cast<uint32_t>((magnitude * scale + 500) / 1000);
+  if (axis == 'X') return static_cast<uint32_t>((magnitude * X_PULSES_PER_MM + 500) / 1000);
+  const uint64_t numerator = magnitude * E_PULSES_PER_MM * E_DRIVER_MICROSTEPS;
+  const uint64_t denominator = 1000ULL * E_CALIBRATION_MICROSTEPS;
+  return static_cast<uint32_t>((numerator + denominator / 2) / denominator);
 }
 
 uint32_t xPeriodForPulse(uint32_t emitted, uint32_t total) {
@@ -327,14 +337,15 @@ void sendManualStatus() {
   Serial.printf(
       "%s mode=FINAL_MANUAL armed=%c moving=%c endstops=NONE homing=MANUAL "
       "Xscale=%lupulse/mm XdirHigh=%s XlongMax=20mm "
-      "Escale=%lupulse/mm EdirHigh=%s Eextend=300pulse/s Eretract=60pulse/s "
-      "EmaxRawPulse=320 "
+      "Escale=%lu/%lupulse/mm Emicrostep=FULL EdirHigh=%s "
+      "Eextend=18.75pulse/s Eretract=7.8125pulse/s EmaxRawPulse=64 "
       "state=%s position=%s NO_ENDSTOP_PROTECTION\n",
       FIRMWARE_VERSION, manualArmedAxis ? manualArmedAxis : '-',
       action == Action::MANUAL && motion.active ? motion.axis : '-',
       static_cast<unsigned long>(X_PULSES_PER_MM),
       X_DIR_HIGH_MOVES_RIGHT ? "RIGHT" : "LEFT",
-      static_cast<unsigned long>(E_PULSES_PER_MM),
+      static_cast<unsigned long>(E_PULSES_PER_MM * E_DRIVER_MICROSTEPS),
+      static_cast<unsigned long>(E_CALIBRATION_MICROSTEPS),
       E_DIR_HIGH_EXTENDS ? "EXTEND" : "RETRACT", stateName(machineState),
       referenced ? "REFERENCED" : "UNREFERENCED");
 }
@@ -392,10 +403,11 @@ void startManualE(long signedPulses) {
   digitalWrite(E_DIR_PIN, signedPulses > 0 ? HIGH : LOW);
   digitalWrite(E_STEP_PIN, LOW);
   digitalWrite(E_ENABLE_PIN, LOW);
-  Serial.printf("START E raw_pulses=%lu DIR=%s SCALE=%lupulse/mm NO_ENDSTOP_PROTECTION\n",
+  Serial.printf("START E raw_pulses=%lu DIR=%s SCALE=%lu/%lupulse/mm MICROSTEP=FULL NO_ENDSTOP_PROTECTION\n",
                 static_cast<unsigned long>(motion.total),
                 signedPulses > 0 ? "HIGH" : "LOW",
-                static_cast<unsigned long>(E_PULSES_PER_MM));
+                static_cast<unsigned long>(E_PULSES_PER_MM * E_DRIVER_MICROSTEPS),
+                static_cast<unsigned long>(E_CALIBRATION_MICROSTEPS));
 }
 
 void handleManualCommand(char *input) {
@@ -442,10 +454,11 @@ void handleManualCommand(char *input) {
   long signedPulses = 0;
   if (sscanf(input, "PULSE %c %ld %c", &axis, &signedPulses, &extra) == 2 && axis == 'E') {
     if (!consumeManualArm('E')) return;
-    if ((signedPulses > -16 && signedPulses < 16) ||
+    if ((signedPulses > -static_cast<long>(MANUAL_E_MIN_PULSES) &&
+         signedPulses < static_cast<long>(MANUAL_E_MIN_PULSES)) ||
         signedPulses < -static_cast<long>(MANUAL_E_MAX_PULSES) ||
         signedPulses > static_cast<long>(MANUAL_E_MAX_PULSES)) {
-      Serial.println("REJECT E_RAW_RANGE_16_TO_320_PULSES");
+      Serial.println("REJECT E_RAW_RANGE_1_TO_64_FULL_STEPS");
       return;
     }
     if (!manualAvailable()) return;

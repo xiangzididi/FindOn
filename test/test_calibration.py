@@ -25,8 +25,8 @@ class CalibrationMathTests(unittest.TestCase):
 
     def test_motion_limits_match_bench_firmware(self):
         self.assertEqual(calibration.validate_motion("X", -5), ("TRAVEL X -5", 100000))
-        self.assertEqual(calibration.validate_motion("E", 320), ("PULSE E 320", 320))
-        for axis, value in (("X", 0.5), ("X", 21), ("E", 15), ("E", 321), ("E", 20.5)):
+        self.assertEqual(calibration.validate_motion("E", 64), ("PULSE E 64", 64))
+        for axis, value in (("X", 0.5), ("X", 21), ("E", 0), ("E", 65), ("E", 20.5)):
             with self.subTest(axis=axis, value=value):
                 with self.assertRaises(ValueError):
                     calibration.validate_motion(axis, value)
@@ -38,7 +38,8 @@ class CalibrationOutputTests(unittest.TestCase):
             "version": 1,
             "updated_at": None,
             "x": {"pulses_per_mm": 20000, "calibrated": True, "dir_high_motion": "RIGHT", "hook_shift_mm": 4.5},
-            "e": {"pulses_per_mm": 71, "calibrated": True, "dir_high_motion": "RETRACT", "dock_mm": 18.25},
+            "e": {"pulses_per_mm": 71, "calibrated_microsteps": 16, "driver_microsteps": 1,
+                  "calibrated": True, "dir_high_motion": "RETRACT", "dock_mm": 18.25},
             "slots": {"S01": {"x_mm": 42.5}, "S02": {"x_mm": 112.75}},
         }
 
@@ -54,6 +55,8 @@ class CalibrationOutputTests(unittest.TestCase):
     def test_header_contains_scaled_integer_coordinates_and_direction(self):
         header = calibration.render_header(self.complete_config())
         self.assertIn("E_PULSES_PER_MM = 71", header)
+        self.assertIn("E_CALIBRATION_MICROSTEPS = 16", header)
+        self.assertIn("E_DRIVER_MICROSTEPS = 1", header)
         self.assertIn("E_DOCK_UM = 18250", header)
         self.assertIn("X_HOOK_SHIFT_UM = 4500", header)
         self.assertIn("S02_X_UM = 112750", header)

@@ -9,9 +9,9 @@ const dot=(x,y)=>s.push(`<circle cx="${x}" cy="${y}" r="4" fill="${c.line}"/>`);
 const wire=(x1,y1,x2,y2,label='',color=c.blue)=>{path(`M${x1} ${y1}H${x2}V${y2}`,color);if(label)text((x1+x2)/2-35,y1-9,label,16,color);};
 const ground=(x,y)=>{path(`M${x} ${y}v12m-14 0h28m-23 6h18m-13 6h8`);};
 const resistor=(x,y)=>{path(`M${x} ${y}v10`);s.push(`<rect x="${x-5}" y="${y+10}" width="10" height="24" fill="white" stroke="${c.line}" stroke-width="2"/>`);path(`M${x} ${y+34}v10`);};
-s.push(`<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="1330" viewBox="0 0 1700 1330"><title>格物双轴零件柜接线图 R6</title><desc>ESP32-S3-N16R8 使用脉冲方向控制带 1:50 减速箱的 PD42S1 与 R100 采样电阻 A4988，当前没有原点或限位开关，共地供电。</desc><rect width="1700" height="1330" fill="${c.bg}"/><g font-family="Microsoft YaHei, Noto Sans CJK SC, sans-serif">`);
+s.push(`<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="1330" viewBox="0 0 1700 1330"><title>格物双轴零件柜接线图 R7</title><desc>ESP32-S3-N16R8 使用脉冲方向控制带 1:50 减速箱的 PD42S1 与全步模式 A4988，当前没有原点或限位开关，共地供电。</desc><rect width="1700" height="1330" fill="${c.bg}"/><g font-family="Microsoft YaHei, Noto Sans CJK SC, sans-serif">`);
 text(45,53,'格物 / 单层两格 · 双轴电气接线图',32,c.ink,600);
-text(45,88,'R6 · X 实测比例更新    GPIO 按当前测试固件；按端子名称接线，图中排列不代表模块实物针脚顺序。',19,c.muted);
+text(45,88,'R7 · E 轴改为全步模式    GPIO 按当前固件；按端子名称接线，图中排列不代表模块实物针脚顺序。',19,c.muted);
 text(45,118,'同名网络（+3V3 / GND / +VM）相连；实心圆为连接点，交叉无圆点不相连。两轴均为 STEP/DIR。',18,c.muted);
 
 box(40,145,790,340,'01  X 轴：PD42S1 + 丝杆 / 导轨');
@@ -32,10 +32,10 @@ text(886,508,'EN 用 10 kΩ 上拉：控制器启动时默认禁用。',17,c.mut
 text(886,550,'+3V3',18,c.red);wire(960,544,1290,544,'VDD',c.red);text(1310,550,'VDD');
 path('M1220 544V600H1290',c.red);dot(1220,544);text(1310,588,'RST');text(1310,615,'SLP');path('M1270 582H1290M1270 582V609H1290',c.red);dot(1270,600);
 text(886,584,'RST、SLP 短接后接 +3V3。',17,c.muted);
-text(886,620,'MS1 / MS2 / MS3 → +3V3',17,c.red);
-text(886,650,'光驱电机 + T4 丝杆；E 实测 21 pulse/mm。',17,c.muted);
+text(886,620,'MS1 / MS2 / MS3 → GND（全步）',17,c.blue);
+text(886,650,'1/16 实测 21 pulse/mm；全步等效 21/16 pulse/mm。',17,c.muted);
 text(1310,652,'MS1 / MS2 / MS3',16);
-text(1185,682,'+3V3',16,c.red);path('M1220 669V646H1290',c.red);
+text(1185,682,'GND',16,c.line);path('M1220 669V646H1290',c.line);ground(1220,669);
 for(const [y,p,n] of [[280,'1A','A'],[318,'1B','A'],[360,'2A','B'],[398,'2B','B']]) {text(1445,y+6,p,16);path(`M1515 ${y}H1580`,c.green);text(1610,y+6,n,17,c.green);}
 path('M1580 280c20 0 20 12.6 0 12.6c20 0 20 12.7 0 12.7c20 0 20 12.7 0 12.7M1580 360c20 0 20 12.6 0 12.6c20 0 20 12.7 0 12.7c20 0 20 12.7 0 12.7',c.green);
 text(1530,455,'电机线圈',16,c.green);text(1530,480,'A 对 / B 对',16,c.green);
