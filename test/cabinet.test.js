@@ -23,11 +23,15 @@ test('统一取物区：先完全离柜再左移，回件先回到原格', async
   const app=create(t); await home(app);
   const fetch=await submit(app,'FETCH','B02');
   const phases=fetch.events.map(e=>e.phase);
+  assert.ok(phases.indexOf('DOCK_REACHED') < phases.indexOf('HOOK_SHIFTING'));
+  assert.ok(phases.indexOf('HOOK_ENGAGED') < phases.indexOf('PULLING'));
   assert.ok(phases.indexOf('TRANSFER_READY') < phases.indexOf('MOVING_TO_PICKUP'));
   assert.equal(fetch.events.find(e=>e.phase==='PICKUP_REACHED').sensors.location,'PICKUP');
   const returned=await submit(app,'RETURN','B02',{area_clear:true});
   assert.equal(returned.events.find(e=>e.phase==='SLOT_REACHED').sensors.slot_id,'S02');
   assert.ok(returned.events.findIndex(e=>e.phase==='SLOT_REACHED') < returned.events.findIndex(e=>e.phase==='PUSHING'));
+  assert.ok(returned.events.findIndex(e=>e.phase==='INSERTION_REACHED') < returned.events.findIndex(e=>e.phase==='UNHOOKING'));
+  assert.ok(returned.events.findIndex(e=>e.phase==='HOOK_RELEASED') < returned.events.findIndex(e=>e.phase==='RETRACTING'));
 });
 
 test('未确认离柜或未到取物区不能记为成功', async t => {
@@ -229,7 +233,7 @@ test('USB 设备先完成协议握手，再发送业务级指令', async () => {
   assert.equal(JSON.parse(transport.writes[0]).type, 'status');
   transport.emit('data', Buffer.from(`${JSON.stringify({ v: 1, type: 'status', protocol: 'partgo-serial-v1',
     node: 'ESP32-S3', firmware: 'test', state: 'UNREFERENCED', motion_configured: true,
-    referenced: false, config_version: 4, slots: [] })}\n`));
+    referenced: false, config_version: 5, slots: [] })}\n`));
   assert.equal(device.info().verified, true);
   const events = [];
   const pending = device.execute({ id: 'T-USB', action: 'HOME', area_clear: true,
@@ -237,6 +241,7 @@ test('USB 设备先完成协议握手，再发送业务级指令', async () => {
   const command = JSON.parse(transport.writes.at(-1));
   assert.equal(command.cmd, 'REFERENCE');
   assert.equal(command.manual_reference_confirmed, true);
+  assert.equal(command.config_version, 5);
   transport.emit('data', Buffer.from('{"v":1,"type":"ack","task_id":"T-USB","accepted":true}\n'));
   transport.emit('data', Buffer.from('{"v":1,"type":"event","task_id":"T-USB","seq":1,"phase":"REFERENCE_ACCEPTED","sensors":{}}\n'));
   transport.emit('data', Buffer.from('{"v":1,"type":"result","task_id":"T-USB","success":true,"state":"READY"}\n'));

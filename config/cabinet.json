@@ -10,6 +10,8 @@
   "motor_axis": "X",
   "extraction_driver": "A4988 STEP/DIR",
   "extraction_stroke_nominal_mm": 50,
+  "extraction_dock_mm": 48,
+  "hook_shift_right_mm": 4.5,
   "selection": "automatic",
   "pickup": "left_side_fixed_station",
   "box_confirmation": "operator",

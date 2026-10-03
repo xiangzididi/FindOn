@@ -37,7 +37,7 @@ class CalibrationOutputTests(unittest.TestCase):
         return {
             "version": 1,
             "updated_at": None,
-            "x": {"pulses_per_mm": 20000, "calibrated": True, "dir_high_motion": "RIGHT"},
+            "x": {"pulses_per_mm": 20000, "calibrated": True, "dir_high_motion": "RIGHT", "hook_shift_mm": 4.5},
             "e": {"pulses_per_mm": 71, "calibrated": True, "dir_high_motion": "RETRACT", "dock_mm": 18.25},
             "slots": {"S01": {"x_mm": 42.5}, "S02": {"x_mm": 112.75}},
         }
@@ -46,7 +46,8 @@ class CalibrationOutputTests(unittest.TestCase):
         raw = json.loads(calibration.CONFIG_PATH.read_text(encoding="utf-8"))
         missing = calibration.validate_calibration(raw)
         self.assertNotIn("E pulse/mm", missing)
-        self.assertIn("E 对接行程（0–50 mm）", missing)
+        self.assertNotIn("E 对接行程（0–50 mm）", missing)
+        self.assertIn("S01 X 坐标（0–250 mm）", missing)
         with self.assertRaises(ValueError):
             calibration.render_header(raw)
 
@@ -54,6 +55,7 @@ class CalibrationOutputTests(unittest.TestCase):
         header = calibration.render_header(self.complete_config())
         self.assertIn("E_PULSES_PER_MM = 71", header)
         self.assertIn("E_DOCK_UM = 18250", header)
+        self.assertIn("X_HOOK_SHIFT_UM = 4500", header)
         self.assertIn("S02_X_UM = 112750", header)
         self.assertIn("E_DIR_HIGH_EXTENDS = false", header)
 

@@ -9,9 +9,11 @@ const names = {
 const phaseGroups = {
   REFERENCE_ACCEPTED: 'accepted', HOME_CONFIRMED: 'delivered', E_CLEAR: 'accepted',
   MOVING_TO_SLOT: 'locating', SLOT_REACHED: 'locating', DOCKING: 'pulling',
-  DOCK_REACHED: 'pulling', PULLING: 'pulling', EXTRACTION_REACHED: 'pulling',
+  DOCK_REACHED: 'pulling', HOOK_SHIFTING: 'pulling', HOOK_ENGAGED: 'pulling',
+  PULLING: 'pulling', EXTRACTION_REACHED: 'pulling',
   TRANSFER_READY: 'transporting', MOVING_TO_PICKUP: 'transporting', PICKUP_REACHED: 'delivered',
-  PUSHING: 'pulling', INSERTION_REACHED: 'pulling', RETRACTING: 'transporting',
+  PUSHING: 'pulling', INSERTION_REACHED: 'pulling', UNHOOKING: 'pulling',
+  HOOK_RELEASED: 'pulling', RETRACTING: 'transporting',
   OPERATOR_CONFIRMED: 'delivered'
 };
 const phaseCopy = {

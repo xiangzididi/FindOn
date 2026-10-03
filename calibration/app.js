@@ -54,6 +54,7 @@ function render(state) {
   displayValue($("#dockInput"), calibration.e.dock_mm);
   displayValue($("#s01Input"), calibration.slots.S01.x_mm);
   displayValue($("#s02Input"), calibration.slots.S02.x_mm);
+  displayValue($("#hookShiftInput"), calibration.x.hook_shift_mm);
   if (!hydrated) {
     $("#xDirection").value = calibration.x.dir_high_motion;
     $("#eDirection").value = calibration.e.dir_high_motion;

@@ -4,13 +4,14 @@
   "x": {
     "pulses_per_mm": 20000,
     "calibrated": true,
-    "dir_high_motion": "RIGHT"
+    "dir_high_motion": "RIGHT",
+    "hook_shift_mm": 4.5
   },
   "e": {
     "pulses_per_mm": 21,
     "calibrated": true,
     "dir_high_motion": "RETRACT",
-    "dock_mm": null
+    "dock_mm": 48
   },
   "slots": {
     "S01": { "x_mm": null },

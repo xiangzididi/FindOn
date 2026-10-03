@@ -61,6 +61,9 @@ def validate_calibration(data: dict[str, Any]) -> list[str]:
         missing.append("X pulse/mm")
     if x.get("dir_high_motion") not in ("RIGHT", "LEFT"):
         missing.append("X DIR 高电平方向")
+    hook_shift = x.get("hook_shift_mm")
+    if not isinstance(hook_shift, (int, float)) or not math.isfinite(hook_shift) or hook_shift <= 0 or hook_shift > 20:
+        missing.append("X 取盒横移（0–20 mm）")
     if not isinstance(e.get("pulses_per_mm"), int) or e["pulses_per_mm"] <= 0:
         missing.append("E pulse/mm")
     if e.get("dir_high_motion") not in ("EXTEND", "RETRACT"):
@@ -94,6 +97,7 @@ def render_header(data: dict[str, Any]) -> str:
 constexpr uint32_t X_PULSES_PER_MM = {x['pulses_per_mm']};
 constexpr uint32_t E_PULSES_PER_MM = {e['pulses_per_mm']};
 constexpr int32_t E_DOCK_UM = {round(e['dock_mm'] * 1000)};
+constexpr int32_t X_HOOK_SHIFT_UM = {round(x['hook_shift_mm'] * 1000)};
 constexpr int32_t S01_X_UM = {round(slots['S01']['x_mm'] * 1000)};
 constexpr int32_t S02_X_UM = {round(slots['S02']['x_mm'] * 1000)};
 
@@ -283,6 +287,7 @@ class CalibrationService:
             raise ValueError("方向配置无效")
         with self.lock:
             self.calibration["x"]["dir_high_motion"] = x_direction
+            self.calibration["x"]["hook_shift_mm"] = number("x_hook_shift_mm", 0.001, 20)
             self.calibration["e"]["dir_high_motion"] = e_direction
             self.calibration["e"]["dock_mm"] = number("e_dock_mm", 0.001, 50)
             self.calibration["slots"]["S01"]["x_mm"] = number("s01_x_mm", 0, 250)

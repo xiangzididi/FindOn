@@ -64,6 +64,7 @@
                 <label>E 对接行程<div class="unit-input"><input id="dockInput" name="e_dock_mm" type="number" min="0.001" max="50" step="0.001" required><i>mm</i></div><small>从完全回缩到挂钩对接位置</small></label>
                 <label>S01 中心坐标<div class="unit-input"><input id="s01Input" name="s01_x_mm" type="number" min="0" max="250" step="0.001" required><i>mm</i></div><small>取物区原点到 1 号格中心</small></label>
                 <label>S02 中心坐标<div class="unit-input"><input id="s02Input" name="s02_x_mm" type="number" min="0" max="250" step="0.001" required><i>mm</i></div><small>取物区原点到 2 号格中心</small></label>
+                <label>X 取盒横移<div class="unit-input"><input id="hookShiftInput" name="x_hook_shift_mm" type="number" min="0.001" max="20" step="0.001" required><i>mm</i></div><small>E 伸出后向右挂住盒子</small></label>
                 <label>X DIR 高电平<select id="xDirection" name="x_dir_high_motion"><option value="RIGHT">向右</option><option value="LEFT">向左</option></select><small>现有测试记录为向右</small></label>
                 <label>E DIR 高电平<select id="eDirection" name="e_dir_high_motion"><option value="RETRACT">回缩</option><option value="EXTEND">伸出</option></select><small>现有测试记录为回缩</small></label>
               </div>

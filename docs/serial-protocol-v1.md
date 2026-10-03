@@ -43,7 +43,7 @@
 ### 人工建立原点
 
 ```json
-{"v":1,"type":"command","task_id":"task-ref-01","cmd":"REFERENCE","config_version":4,"manual_reference_confirmed":true,"area_clear":true}
+{"v":1,"type":"command","task_id":"task-ref-01","cmd":"REFERENCE","config_version":5,"manual_reference_confirmed":true,"area_clear":true}
 ```
 
 控制器不执行电机动作，只把当前位置登记为 `X=0 mm`、`E=0 mm`。缺少两个确认字段时必须拒绝。
@@ -51,13 +51,13 @@
 ### 取件
 
 ```json
-{"v":1,"type":"command","task_id":"task-fetch-01","cmd":"FETCH","slot_id":"S01","config_version":4,"area_clear":true}
+{"v":1,"type":"command","task_id":"task-fetch-01","cmd":"FETCH","slot_id":"S01","config_version":5,"area_clear":true}
 ```
 
 ### 回件
 
 ```json
-{"v":1,"type":"command","task_id":"task-return-01","cmd":"RETURN","slot_id":"S01","config_version":4,"area_clear":true}
+{"v":1,"type":"command","task_id":"task-return-01","cmd":"RETURN","slot_id":"S01","config_version":5,"area_clear":true}
 ```
 
 ### 停止
@@ -73,7 +73,7 @@
 ### 握手与状态
 
 ```json
-{"v":1,"type":"hello","request_id":"boot-01","protocol":"partgo-serial-v1","node":"ESP32-S3","firmware":"PARTGO-CONTROLLER-1.0.0","state":"CONFIG_LOCKED","motion_configured":false,"referenced":false,"busy":false,"config_version":4,"layout":{"rows":2,"columns":2,"has_y_axis":false},"calibration":{"x_pulse_per_mm":20000,"e_pulse_per_mm":0},"slots":[{"id":"S01","enabled":true,"calibrated":false},{"id":"S02","enabled":true,"calibrated":false},{"id":"S03","enabled":false,"calibrated":false},{"id":"S04","enabled":false,"calibrated":false}]}
+{"v":1,"type":"hello","request_id":"boot-01","protocol":"partgo-serial-v1","node":"ESP32-S3","firmware":"PARTGO-CONTROLLER-1.1.0","state":"CONFIG_LOCKED","motion_configured":false,"referenced":false,"busy":false,"config_version":5,"layout":{"rows":2,"columns":2,"has_y_axis":false},"calibration":{"x_pulse_per_mm":20000,"e_pulse_per_mm":21,"e_dock_um":48000,"x_hook_shift_um":4500},"slots":[{"id":"S01","enabled":true,"calibrated":false},{"id":"S02","enabled":true,"calibrated":false},{"id":"S03","enabled":false,"calibrated":false},{"id":"S04","enabled":false,"calibrated":false}]}
 ```
 
 `status` 响应字段相同，只把 `type` 改为 `status`。`motion_configured=false` 时，本机页面显示“待标定”，并禁用自动取还件。
@@ -101,8 +101,10 @@
 阶段顺序：
 
 - `REFERENCE`：`REFERENCE_ACCEPTED` → `HOME_CONFIRMED`
-- `FETCH`：`E_CLEAR` → `MOVING_TO_SLOT` → `SLOT_REACHED` → `DOCKING` → `DOCK_REACHED` → `PULLING` → `EXTRACTION_REACHED` → `TRANSFER_READY` → `MOVING_TO_PICKUP` → `PICKUP_REACHED`
-- `RETURN`：`TRANSFER_READY` → `MOVING_TO_SLOT` → `SLOT_REACHED` → `PUSHING` → `INSERTION_REACHED` → `RETRACTING` → `E_CLEAR` → `MOVING_TO_PICKUP` → `PICKUP_REACHED`
+- `FETCH`：`E_CLEAR` → `MOVING_TO_SLOT` → `SLOT_REACHED` → `DOCKING` → `DOCK_REACHED` → `HOOK_SHIFTING` → `HOOK_ENGAGED` → `PULLING` → `EXTRACTION_REACHED` → `TRANSFER_READY` → `MOVING_TO_PICKUP` → `PICKUP_REACHED`
+- `RETURN`：`TRANSFER_READY` → `MOVING_TO_SLOT` → `SLOT_REACHED` → `PUSHING` → `INSERTION_REACHED` → `UNHOOKING` → `HOOK_RELEASED` → `RETRACTING` → `E_CLEAR` → `MOVING_TO_PICKUP` → `PICKUP_REACHED`
+
+机械动作固定为：取件时到达格口基准坐标，E 伸出 `48 mm`，X 向右 `4.5 mm` 挂住盒子，E 回缩 `48 mm`，再回到左侧取物区。回件执行逆序动作：到达格口右偏 `4.5 mm` 的坐标，E 伸出 `48 mm`，X 向左 `4.5 mm` 释放盒子，E 回缩后返回取物区。
 
 ### 最终结果
 

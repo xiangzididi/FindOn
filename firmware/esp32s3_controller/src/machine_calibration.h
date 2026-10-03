@@ -6,7 +6,8 @@
 // Unknown values keep the production controller in CONFIG_LOCKED.
 constexpr uint32_t X_PULSES_PER_MM = 20000;
 constexpr uint32_t E_PULSES_PER_MM = 21;
-constexpr int32_t E_DOCK_UM = -1;
+constexpr int32_t E_DOCK_UM = 48000;
+constexpr int32_t X_HOOK_SHIFT_UM = 4500;
 constexpr int32_t S01_X_UM = -1;
 constexpr int32_t S02_X_UM = -1;
 

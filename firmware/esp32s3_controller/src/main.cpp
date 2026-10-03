@@ -11,10 +11,10 @@
 
 namespace {
 
-constexpr char FIRMWARE_VERSION[] = "PARTGO-CONTROLLER-1.0.0";
+constexpr char FIRMWARE_VERSION[] = "PARTGO-CONTROLLER-1.1.0";
 constexpr char PROTOCOL_NAME[] = "partgo-serial-v1";
 constexpr int PROTOCOL_VERSION = 1;
-constexpr int CONFIG_VERSION = 4;
+constexpr int CONFIG_VERSION = 5;
 
 constexpr int X_STEP_PIN = 17;
 constexpr int X_DIR_PIN = 18;
@@ -56,11 +56,13 @@ enum class Action { NONE, REFERENCE, FETCH, RETURN_BOX };
 enum class Stage : uint8_t {
   NONE,
   FETCH_MOVE_SLOT,
-  FETCH_DOCK,
-  FETCH_PULL,
+  FETCH_EXTEND,
+  FETCH_HOOK_SHIFT,
+  FETCH_RETRACT,
   FETCH_MOVE_PICKUP,
-  RETURN_MOVE_SLOT,
-  RETURN_PUSH,
+  RETURN_MOVE_HOOKED_SLOT,
+  RETURN_EXTEND,
+  RETURN_UNHOOK_SHIFT,
   RETURN_RETRACT,
   RETURN_MOVE_PICKUP,
 };
@@ -110,11 +112,12 @@ const char *stateName(MachineState value) {
 }
 
 bool motionConfigured() {
-  if (!X_PULSES_PER_MM || !E_PULSES_PER_MM || E_DOCK_UM <= 0) return false;
+  if (!X_PULSES_PER_MM || !E_PULSES_PER_MM || E_DOCK_UM <= 0 || E_DOCK_UM > 50000 ||
+      X_HOOK_SHIFT_UM <= 0 || X_HOOK_SHIFT_UM > 20000) return false;
   for (const auto &slot : SLOTS) {
     if (!slot.enabled) continue;
     if (slot.requiresY && !HAS_Y_AXIS) return false;
-    if (slot.xUm < X_MIN_UM || slot.xUm > X_MAX_UM) return false;
+    if (slot.xUm < X_MIN_UM || slot.xUm > X_MAX_UM || slot.xUm + X_HOOK_SHIFT_UM > X_MAX_UM) return false;
   }
   return true;
 }
@@ -206,9 +209,10 @@ void sendStatus(const char *type, const char *requestId) {
                 type, requestId, PROTOCOL_NAME, FIRMWARE_VERSION, stateName(machineState),
                 configured ? "true" : "false", referenced ? "true" : "false",
                 action == Action::NONE ? "false" : "true", CONFIG_VERSION);
-  Serial.printf("\"layout\":{\"rows\":2,\"columns\":2,\"has_y_axis\":%s},\"calibration\":{\"x_pulse_per_mm\":%lu,\"e_pulse_per_mm\":%lu},\"slots\":[",
+  Serial.printf("\"layout\":{\"rows\":2,\"columns\":2,\"has_y_axis\":%s},\"calibration\":{\"x_pulse_per_mm\":%lu,\"e_pulse_per_mm\":%lu,\"e_dock_um\":%ld,\"x_hook_shift_um\":%ld},\"slots\":[",
                 HAS_Y_AXIS ? "true" : "false", static_cast<unsigned long>(X_PULSES_PER_MM),
-                static_cast<unsigned long>(E_PULSES_PER_MM));
+                static_cast<unsigned long>(E_PULSES_PER_MM), static_cast<long>(E_DOCK_UM),
+                static_cast<long>(X_HOOK_SHIFT_UM));
   for (size_t i = 0; i < sizeof(SLOTS) / sizeof(SLOTS[0]); ++i) {
     const auto &slot = SLOTS[i];
     if (i) Serial.print(',');
@@ -317,17 +321,25 @@ void advancePlan() {
       snprintf(fields, sizeof(fields), "\"slot_id\":\"%s\",\"x_in_position\":true,\"x_um\":%ld", activeSlotId, static_cast<long>(xPositionUm));
       sendEvent("SLOT_REACHED", fields);
       sendEvent("DOCKING", "\"axis\":\"E\"");
-      stage = Stage::FETCH_DOCK;
+      stage = Stage::FETCH_EXTEND;
       if (!startAxis('E', E_DOCK_UM)) advancePlan();
       break;
-    case Stage::FETCH_DOCK:
+    case Stage::FETCH_EXTEND:
       snprintf(fields, sizeof(fields), "\"axis_in_position\":true,\"e_um\":%ld", static_cast<long>(ePositionUm));
       sendEvent("DOCK_REACHED", fields);
+      snprintf(fields, sizeof(fields), "\"axis\":\"X\",\"direction\":\"RIGHT\",\"shift_um\":%ld", static_cast<long>(X_HOOK_SHIFT_UM));
+      sendEvent("HOOK_SHIFTING", fields);
+      stage = Stage::FETCH_HOOK_SHIFT;
+      if (!startAxis('X', slot->xUm + X_HOOK_SHIFT_UM)) advancePlan();
+      break;
+    case Stage::FETCH_HOOK_SHIFT:
+      snprintf(fields, sizeof(fields), "\"x_in_position\":true,\"hook_engaged\":true,\"x_um\":%ld", static_cast<long>(xPositionUm));
+      sendEvent("HOOK_ENGAGED", fields);
       sendEvent("PULLING", "\"axis\":\"E\"");
-      stage = Stage::FETCH_PULL;
+      stage = Stage::FETCH_RETRACT;
       if (!startAxis('E', 0)) advancePlan();
       break;
-    case Stage::FETCH_PULL:
+    case Stage::FETCH_RETRACT:
       sendEvent("EXTRACTION_REACHED", "\"axis_in_position\":true,\"axis_endpoint\":\"RETRACTED\",\"e_um\":0");
       sendEvent("TRANSFER_READY", "\"motion_complete\":true,\"e_clear\":true");
       sendEvent("MOVING_TO_PICKUP", "\"axis\":\"X\"");
@@ -338,15 +350,23 @@ void advancePlan() {
       sendEvent("PICKUP_REACHED", "\"x_in_position\":true,\"location\":\"PICKUP\",\"x_um\":0");
       finishSuccess();
       break;
-    case Stage::RETURN_MOVE_SLOT:
+    case Stage::RETURN_MOVE_HOOKED_SLOT:
       snprintf(fields, sizeof(fields), "\"slot_id\":\"%s\",\"x_in_position\":true,\"x_um\":%ld", activeSlotId, static_cast<long>(xPositionUm));
       sendEvent("SLOT_REACHED", fields);
       sendEvent("PUSHING", "\"axis\":\"E\"");
-      stage = Stage::RETURN_PUSH;
+      stage = Stage::RETURN_EXTEND;
       if (!startAxis('E', E_DOCK_UM)) advancePlan();
       break;
-    case Stage::RETURN_PUSH:
+    case Stage::RETURN_EXTEND:
       sendEvent("INSERTION_REACHED", "\"axis_in_position\":true,\"axis_endpoint\":\"EXTENDED\"");
+      snprintf(fields, sizeof(fields), "\"axis\":\"X\",\"direction\":\"LEFT\",\"shift_um\":%ld", static_cast<long>(X_HOOK_SHIFT_UM));
+      sendEvent("UNHOOKING", fields);
+      stage = Stage::RETURN_UNHOOK_SHIFT;
+      if (!startAxis('X', slot->xUm)) advancePlan();
+      break;
+    case Stage::RETURN_UNHOOK_SHIFT:
+      snprintf(fields, sizeof(fields), "\"x_in_position\":true,\"hook_released\":true,\"x_um\":%ld", static_cast<long>(xPositionUm));
+      sendEvent("HOOK_RELEASED", fields);
       sendEvent("RETRACTING", "\"axis\":\"E\"");
       stage = Stage::RETURN_RETRACT;
       if (!startAxis('E', 0)) advancePlan();
@@ -400,9 +420,10 @@ void startBusinessTask(const char *taskId, Action nextAction, const SlotConfig &
   } else {
     sendEvent("TRANSFER_READY", "\"motion_complete\":true,\"e_clear\":true");
     sendEvent("MOVING_TO_SLOT", "\"axis\":\"X\"");
-    stage = Stage::RETURN_MOVE_SLOT;
+    stage = Stage::RETURN_MOVE_HOOKED_SLOT;
   }
-  if (!startAxis('X', slot.xUm)) advancePlan();
+  const int32_t targetX = nextAction == Action::FETCH ? slot.xUm : slot.xUm + X_HOOK_SHIFT_UM;
+  if (!startAxis('X', targetX)) advancePlan();
 }
 
 void handleCommand(const char *json) {
