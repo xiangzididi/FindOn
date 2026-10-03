@@ -25,8 +25,8 @@ class CalibrationMathTests(unittest.TestCase):
 
     def test_motion_limits_match_bench_firmware(self):
         self.assertEqual(calibration.validate_motion("X", -5), ("TRAVEL X -5", 100000))
-        self.assertEqual(calibration.validate_motion("E", 64), ("PULSE E 64", 64))
-        for axis, value in (("X", 0.5), ("X", 21), ("E", 0), ("E", 65), ("E", 20.5)):
+        self.assertEqual(calibration.validate_motion("E", 320), ("PULSE E 320", 320))
+        for axis, value in (("X", 0.5), ("X", 21), ("E", 0), ("E", 321), ("E", 20.5)):
             with self.subTest(axis=axis, value=value):
                 with self.assertRaises(ValueError):
                     calibration.validate_motion(axis, value)
@@ -46,7 +46,7 @@ class CalibrationOutputTests(unittest.TestCase):
     def test_complete_config_unlocks_and_missing_slot_locks(self):
         raw = json.loads(calibration.CONFIG_PATH.read_text(encoding="utf-8"))
         self.assertEqual(calibration.validate_calibration(raw), [])
-        self.assertIn("S01_X_UM = 32000", calibration.render_header(raw))
+        self.assertIn("S01_X_UM = 30500", calibration.render_header(raw))
         raw["slots"]["S01"]["x_mm"] = None
         self.assertIn("S01 X 坐标（0–250 mm）", calibration.validate_calibration(raw))
         with self.assertRaises(ValueError):

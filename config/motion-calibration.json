@@ -8,8 +8,8 @@
     "hook_shift_mm": 4.5
   },
   "e": {
-    "pulses_per_mm": 21,
-    "scale_divisor": 4,
+    "pulses_per_mm": 20,
+    "scale_divisor": 1,
     "driver_microsteps": 1,
     "calibrated": true,
     "dir_high_motion": "EXTEND",
@@ -17,10 +17,10 @@
   },
   "slots": {
     "S01": {
-      "x_mm": 32.0
+      "x_mm": 30.5
     },
     "S02": {
-      "x_mm": 106.0
+      "x_mm": 104.5
     }
   }
 }

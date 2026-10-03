@@ -11,7 +11,7 @@
 
 namespace {
 
-constexpr char FIRMWARE_VERSION[] = "PARTGO-CONTROLLER-1.3.1";
+constexpr char FIRMWARE_VERSION[] = "PARTGO-CONTROLLER-1.3.2";
 constexpr char PROTOCOL_NAME[] = "partgo-serial-v1";
 constexpr int PROTOCOL_VERSION = 1;
 constexpr int CONFIG_VERSION = 5;
@@ -28,17 +28,15 @@ constexpr uint32_t E_ACTIVE_US = 20;
 constexpr uint32_t X_START_PERIOD_US = 50;
 constexpr uint32_t X_CRUISE_PERIOD_US = 17;
 constexpr uint32_t X_RAMP_PULSES = 2000;
-// E now runs in full-step mode. The observed travel shows the stored 21
-// pulse/mm calibration needs an empirical divisor of 4. These periods keep
-// the original extension/retraction linear speeds at the corrected scale.
-constexpr uint32_t E_EXTEND_PERIOD_US = 13333;  // 75 full-step/s.
-constexpr uint32_t E_RETRACT_PERIOD_US = 32000; // 31.25 full-step/s, loaded pull.
-constexpr uint32_t E_MANUAL_PERIOD_US = 13333;
+// E runs in full-step mode at the latest measured 20 pulse/mm scale.
+constexpr uint32_t E_EXTEND_PERIOD_US = 3333;  // 300 full-step/s.
+constexpr uint32_t E_RETRACT_PERIOD_US = 8000; // 125 full-step/s, loaded pull.
+constexpr uint32_t E_MANUAL_PERIOD_US = 3333;
 constexpr uint32_t MOTION_TIMEOUT_MARGIN_MS = 5000;
 constexpr uint32_t MOTION_TIMEOUT_MAX_MS = 300000;
 constexpr uint32_t MANUAL_ARM_MS = 10000;
 constexpr uint32_t MANUAL_E_MIN_PULSES = 1;
-constexpr uint32_t MANUAL_E_MAX_PULSES = 64;
+constexpr uint32_t MANUAL_E_MAX_PULSES = 320;
 
 constexpr int32_t X_MIN_UM = 0;
 constexpr int32_t X_MAX_UM = 250000;
@@ -337,7 +335,7 @@ void sendManualStatus() {
       "%s mode=FINAL_MANUAL armed=%c moving=%c endstops=NONE homing=MANUAL "
       "Xscale=%lupulse/mm XdirHigh=%s XlongMax=20mm "
       "Escale=%lu/%lupulse/mm Emicrostep=FULL EdirHigh=%s "
-      "Eextend=75pulse/s Eretract=31.25pulse/s EmaxRawPulse=64 "
+      "Eextend=300pulse/s Eretract=125pulse/s EmaxRawPulse=320 "
       "state=%s position=%s NO_ENDSTOP_PROTECTION\n",
       FIRMWARE_VERSION, manualArmedAxis ? manualArmedAxis : '-',
       action == Action::MANUAL && motion.active ? motion.axis : '-',
@@ -457,7 +455,7 @@ void handleManualCommand(char *input) {
          signedPulses < static_cast<long>(MANUAL_E_MIN_PULSES)) ||
         signedPulses < -static_cast<long>(MANUAL_E_MAX_PULSES) ||
         signedPulses > static_cast<long>(MANUAL_E_MAX_PULSES)) {
-      Serial.println("REJECT E_RAW_RANGE_1_TO_64_FULL_STEPS");
+      Serial.println("REJECT E_RAW_RANGE_1_TO_320_FULL_STEPS");
       return;
     }
     if (!manualAvailable()) return;

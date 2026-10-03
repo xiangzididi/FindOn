@@ -46,8 +46,8 @@ def validate_motion(axis: str, value: float) -> tuple[str, int]:
             raise ValueError("X 单次范围为 ±1–20 mm")
         return f"TRAVEL X {value:g}", round(abs(value) * X_SCALE)
     if axis == "E":
-        if value != int(value) or abs(value) < 1 or abs(value) > 64:
-            raise ValueError("E 单次范围为 ±1–64 个全步脉冲")
+        if value != int(value) or abs(value) < 1 or abs(value) > 320:
+            raise ValueError("E 单次范围为 ±1–320 个全步脉冲")
         return f"PULSE E {int(value)}", abs(int(value))
     raise ValueError("未知轴")
 

@@ -67,7 +67,7 @@
 <circle cx="1270" cy="600" r="4" fill="#344e65"/>
 <text x="886" y="584" font-size="17" fill="#586a7a" font-weight="400">RST、SLP 短接后接 +3V3。</text>
 <text x="886" y="620" font-size="17" fill="#1768ac" font-weight="400">MS1 / MS2 / MS3 → GND（全步）</text>
-<text x="886" y="650" font-size="17" fill="#586a7a" font-weight="400">全步实测换算：21/4 = 5.25 pulse/mm；48 mm = 252 pulse。</text>
+<text x="886" y="650" font-size="17" fill="#586a7a" font-weight="400">E 实测 20 pulse/mm；48 mm 对接行程 = 960 pulse。</text>
 <text x="1310" y="652" font-size="16" fill="#203448" font-weight="400">MS1 / MS2 / MS3</text>
 <text x="1185" y="682" font-size="16" fill="#344e65" font-weight="400">GND</text>
 <path d="M1220 669V646H1290" fill="none" stroke="#344e65" stroke-width="2"/>
