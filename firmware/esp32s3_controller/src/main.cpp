@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "machine_calibration.h"
 
 namespace {
 
@@ -31,17 +32,8 @@ constexpr uint32_t E_PERIOD_US = 3333;
 constexpr uint32_t MOTION_TIMEOUT_MARGIN_MS = 5000;
 constexpr uint32_t MOTION_TIMEOUT_MAX_MS = 300000;
 
-constexpr uint32_t X_PULSES_PER_MM = 20000;  // Measured 2026-10-03.
 constexpr int32_t X_MIN_UM = 0;
 constexpr int32_t X_MAX_UM = 250000;
-
-// ----------------------------- 待标定配置 -----------------------------
-// 0 / -1 means unknown. Keep these locked until physical measurement.
-constexpr uint32_t E_PULSES_PER_MM = 0;
-constexpr int32_t E_DOCK_UM = -1;
-constexpr int32_t S01_X_UM = -1;
-constexpr int32_t S02_X_UM = -1;
-// ----------------------------------------------------------------------
 
 constexpr bool HAS_Y_AXIS = false;
 
@@ -290,10 +282,12 @@ bool startAxis(char axis, int32_t targetUm) {
   const uint64_t estimatedMs = static_cast<uint64_t>(pulses) * nominalPeriod / 1000 + MOTION_TIMEOUT_MARGIN_MS;
   motion.timeoutMs = static_cast<uint32_t>(estimatedMs > MOTION_TIMEOUT_MAX_MS ? MOTION_TIMEOUT_MAX_MS : estimatedMs);
   if (axis == 'X') {
-    digitalWrite(X_DIR_PIN, delta > 0 ? HIGH : LOW);
+    const bool directionHigh = (delta > 0) == X_DIR_HIGH_MOVES_RIGHT;
+    digitalWrite(X_DIR_PIN, directionHigh ? HIGH : LOW);
     digitalWrite(X_STEP_PIN, HIGH);
   } else {
-    digitalWrite(E_DIR_PIN, delta > 0 ? HIGH : LOW);
+    const bool directionHigh = (delta > 0) == E_DIR_HIGH_EXTENDS;
+    digitalWrite(E_DIR_PIN, directionHigh ? HIGH : LOW);
     digitalWrite(E_STEP_PIN, LOW);
     digitalWrite(E_ENABLE_PIN, LOW);
   }

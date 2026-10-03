@@ -7,6 +7,6 @@
   "scripts": {
     "start": "node server.js",
     "test": "node --test",
-    "check": "node --check server.js && node --check lib/cabinet.js && node --check lib/device.js && node --check lib/serial-transport.js && node --check public/app.js"
+    "check": "node --check server.js && node --check lib/cabinet.js && node --check lib/device.js && node --check lib/serial-transport.js && node --check public/app.js && node --check calibration/app.js"
   }
 }

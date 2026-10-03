@@ -64,7 +64,25 @@ $pio = "$env:USERPROFILE\.platformio\penv\Scripts\platformio.exe"
 & $pio run -d .\firmware\esp32s3_controller
 ```
 
-当前最终固件故意保持配置锁定：X 比例已测得 `20000 pulse/mm`，E 比例、E 对接行程和 `S01/S02` X 坐标仍为空。完成标定并填写 `firmware/esp32s3_controller/src/main.cpp` 的“待标定配置”后再刷入控制板。完整协议见 [USB 串口协议 v1](docs/serial-protocol-v1.md)。
+当前最终固件故意保持配置锁定：X 比例已测得 `20000 pulse/mm`，E 比例、E 对接行程和 `S01/S02` X 坐标仍为空。使用下方标定台完成参数后再刷入控制板。完整协议见 [USB 串口协议 v1](docs/serial-protocol-v1.md)。
+
+## 本地标定台
+
+先烧录 `esp32s3_axis_test` 测试固件，把 X/E 滑块放在行程中间并打开电机电源。标定工具默认连接 `COM12`：
+
+```powershell
+.\start-calibration.ps1 -Port COM12
+```
+
+打开 <http://127.0.0.1:3212>。工具每次只发送一次 `ARM` 和一次有限运动，不提供连续转动；X 单次限制为 1–20 mm，E 单次限制为 16–320 原始脉冲。运动完成后填入卡尺实测距离，工具按控制器实际报告的脉冲数计算 `pulse/mm`。随后录入 E 对接行程、S01/S02 相对取物区的 X 坐标和方向，点击“写入最终固件配置”。
+
+标定结果保存到 `config/motion-calibration.json`，同时生成 `firmware/esp32s3_controller/src/machine_calibration.h`。缺少任何必需参数时不会写入，最终固件继续保持 `CONFIG_LOCKED`。无硬件时可验证界面：
+
+```powershell
+.\start-calibration.ps1 -Simulate
+```
+
+模拟模式会生成虚拟回执，不能作为实机标定结果。
 
 ## 验证
 
@@ -75,6 +93,8 @@ node --check lib/cabinet.js
 node --check lib/device.js
 node --check lib/serial-transport.js
 node --check public/app.js
+node --check calibration/app.js
+& "$env:USERPROFILE\.platformio\penv\Scripts\python.exe" -m unittest test/test_calibration.py
 ```
 
 固件验证：
@@ -94,11 +114,15 @@ lib/device.js                     模拟设备、JSONL 与 USB 设备适配器
 lib/serial-transport.js           自动重连的 Python 串口桥进程
 scripts/serial_bridge.py          pyserial 原始字节桥
 scripts/parse_bom.py              本地 BOM 文件解析
+scripts/calibration_server.py     有限运动、测量与固件参数生成
+calibration/                      本地标定台网页
+start-calibration.ps1             标定台启动入口
 public/                           PartGo 前端，无构建步骤
 firmware/esp32s3_axis_test/       标定测试固件
 firmware/esp32s3_controller/      最终控制固件
 docs/serial-protocol-v1.md        主机与 ESP32-S3 指令集合
 config/cabinet.json               1×2 启用格与 2×2 扩展配置
+config/motion-calibration.json    机械标定数据
 test/cabinet.test.js              状态机、串口与 HTTP 测试
 ```
 

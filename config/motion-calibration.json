@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "updated_at": null,
+  "x": {
+    "pulses_per_mm": 20000,
+    "calibrated": true,
+    "dir_high_motion": "RIGHT"
+  },
+  "e": {
+    "pulses_per_mm": 0,
+    "calibrated": false,
+    "dir_high_motion": "RETRACT",
+    "dock_mm": null
+  },
+  "slots": {
+    "S01": { "x_mm": null },
+    "S02": { "x_mm": null }
+  }
+}
