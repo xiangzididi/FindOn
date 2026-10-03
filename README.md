@@ -34,6 +34,8 @@ node server.js
 
 ## USB 串口模式
 
+Windows 下可直接双击项目根目录的 `启动管理系统.bat`。它会关闭旧的 PartGo 服务、释放 COM12、启动管理后台并在服务就绪后打开浏览器。双击 `启动标定台.bat` 可切换到标定台；两个启动器默认使用 COM12，也可在命令行把其他串口作为第一个参数传入。
+
 Python 只用于打开串口和解析 Excel：
 
 ```powershell
@@ -64,7 +66,7 @@ $pio = "$env:USERPROFILE\.platformio\penv\Scripts\platformio.exe"
 & $pio run -d .\firmware\esp32s3_controller
 ```
 
-最终固件的机械参数已经完整：X 比例为 `20000 pulse/mm`，E 比例为 `21 pulse/mm`，E 对接行程为 `48 mm`，取盒挂钩横移为向右 `4.5 mm`，`S01/S02` X 坐标分别为 `32 mm / 106 mm`。编译后的控制器不再处于 `CONFIG_LOCKED`，但每次上电仍必须人工确认 X/E 原点后才接受取回任务。完整协议见 [USB 串口协议 v1](docs/serial-protocol-v1.md)。
+最终固件的机械参数已经完整：X 比例为 `20000 pulse/mm`，E 根据“100 脉冲 = 19.6 mm”采用 `250/49 pulse/mm`（约 `5.1020 pulse/mm`），48 mm 对接行程发送 245 个全步脉冲。取盒挂钩横移为向右 `4.5 mm`，`S01/S02` X 坐标分别为 `30.5 mm / 104.5 mm`。编译后的控制器不再处于 `CONFIG_LOCKED`，但每次上电仍必须人工确认 X/E 原点后才接受取回任务。完整协议见 [USB 串口协议 v1](docs/serial-protocol-v1.md)。
 
 ## 本地标定台
 
@@ -74,7 +76,7 @@ $pio = "$env:USERPROFILE\.platformio\penv\Scripts\platformio.exe"
 .\start-calibration.ps1 -Port COM12
 ```
 
-打开 <http://127.0.0.1:3212>。工具每次只发送一次 `ARM` 和一次有限运动，不提供连续转动；X 单次限制为 1–20 mm，E 单次限制为 16–320 原始脉冲。运动完成后填入卡尺实测距离，工具按控制器实际报告的脉冲数计算 `pulse/mm`。随后录入 E 对接行程、S01/S02 相对取物区的 X 坐标和方向，点击“写入最终固件配置”。
+打开 <http://127.0.0.1:3212>。工具每次只发送一次 `ARM` 和一次有限运动，不提供连续转动；X 单次限制为 1–20 mm，E 在当前全步模式下单次限制为 1–100 脉冲。运动完成后填入卡尺实测距离，工具按当前实测比例换算标定基准。随后录入 E 对接行程、S01/S02 相对取物区的 X 坐标和方向，点击“写入最终固件配置”。
 
 标定结果保存到 `config/motion-calibration.json`，同时生成 `firmware/esp32s3_controller/src/machine_calibration.h`。缺少任何必需参数时不会写入，最终固件继续保持 `CONFIG_LOCKED`。无硬件时可验证界面：
 

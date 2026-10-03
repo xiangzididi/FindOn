@@ -267,7 +267,7 @@ test('HTTP 页面、状态、互斥、输入校验与任务接口', async t => {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(() => new Promise(resolve => server.close(resolve)));
   const base = `http://127.0.0.1:${server.address().port}`;
-  assert.match(await (await fetch(base)).text(), /PartGo/);
+  assert.match(await (await fetch(base)).text(), /格物/);
   const state = await (await fetch(`${base}/api/state`)).json(); assert.equal(state.boxes.length, 2);
   const post = (path, data, token = state.token) => fetch(`${base}/api${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Cabinet-Token': token }, body: JSON.stringify(data) });
   assert.equal((await post('/device/home', {}, 'wrong')).status, 403);

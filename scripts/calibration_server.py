@@ -46,8 +46,8 @@ def validate_motion(axis: str, value: float) -> tuple[str, int]:
             raise ValueError("X 单次范围为 ±1–20 mm")
         return f"TRAVEL X {value:g}", round(abs(value) * X_SCALE)
     if axis == "E":
-        if value != int(value) or abs(value) < 1 or abs(value) > 320:
-            raise ValueError("E 单次范围为 ±1–320 个全步脉冲")
+        if value != int(value) or abs(value) < 1 or abs(value) > 100:
+            raise ValueError("E 单次范围为 ±1–100 个全步脉冲")
         return f"PULSE E {int(value)}", abs(int(value))
     raise ValueError("未知轴")
 
@@ -66,7 +66,7 @@ def validate_calibration(data: dict[str, Any]) -> list[str]:
         missing.append("X 取盒横移（0–20 mm）")
     if not isinstance(e.get("pulses_per_mm"), int) or e["pulses_per_mm"] <= 0:
         missing.append("E pulse/mm")
-    if e.get("scale_divisor") not in (1, 2, 4, 8, 16):
+    if not isinstance(e.get("scale_divisor"), int) or not 1 <= e["scale_divisor"] <= 1000:
         missing.append("E 比例除数")
     if e.get("driver_microsteps") not in (1, 2, 4, 8, 16):
         missing.append("E 当前细分")
@@ -281,8 +281,9 @@ class CalibrationService:
             self.calibration[axis_key]["pulses_per_mm"] = scale
             self.calibration[axis_key]["calibrated"] = True
             move["measured_mm"] = measured_mm
-            move["calculated_scale"] = scale
-            return scale
+            effective_scale = scale / self.calibration[axis_key].get("scale_divisor", 1)
+            move["calculated_scale"] = effective_scale
+            return effective_scale
 
     def geometry(self, body: dict[str, Any]) -> None:
         def number(name: str, minimum: float, maximum: float) -> float:

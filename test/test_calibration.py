@@ -25,8 +25,8 @@ class CalibrationMathTests(unittest.TestCase):
 
     def test_motion_limits_match_bench_firmware(self):
         self.assertEqual(calibration.validate_motion("X", -5), ("TRAVEL X -5", 100000))
-        self.assertEqual(calibration.validate_motion("E", 320), ("PULSE E 320", 320))
-        for axis, value in (("X", 0.5), ("X", 21), ("E", 0), ("E", 321), ("E", 20.5)):
+        self.assertEqual(calibration.validate_motion("E", 100), ("PULSE E 100", 100))
+        for axis, value in (("X", 0.5), ("X", 21), ("E", 0), ("E", 101), ("E", 20.5)):
             with self.subTest(axis=axis, value=value):
                 with self.assertRaises(ValueError):
                     calibration.validate_motion(axis, value)

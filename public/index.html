@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#090c0f" />
-  <meta name="description" content="PartGo 桌面物料调度系统：从零件选择、清单识别到实体零件取还" />
-  <title>PartGo · 桌面物料调度系统</title>
+  <meta name="description" content="格物 桌面物料调度系统：从物品选择、清单识别到实体物品取还" />
+  <title>格物 · 桌面物料调度系统</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23090c0f'/%3E%3Cg fill='none' stroke='%2358d6c7' stroke-width='4'%3E%3Crect x='12' y='12' width='17' height='17' rx='2'/%3E%3Crect x='35' y='12' width='17' height='17' rx='2'/%3E%3Crect x='12' y='35' width='17' height='17' rx='2'/%3E%3C/g%3E%3Crect x='35' y='35' width='17' height='17' rx='2' fill='%23f2b84b'/%3E%3C/svg%3E" />
   <link rel="preload" href="assets/images/partgo-workbench-bg.jpg" as="image" />
   <link rel="preload" href="assets/fonts/SmileySans-Oblique.woff2" as="font" type="font/woff2" crossorigin />
@@ -16,7 +16,7 @@
     <header class="topbar">
       <button class="brand" id="homeButton" type="button" aria-label="回到需求页面">
         <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-        <span><strong>PARTGO</strong><small>BENCH MATERIAL SYSTEM</small></span>
+        <span><strong>格物</strong><small>BENCH MATERIAL SYSTEM</small></span>
       </button>
 
       <nav class="flow-nav" aria-label="任务进度">
@@ -37,24 +37,24 @@
     <main class="view-stack">
       <section class="app-view active" id="requestView" data-view="request" aria-labelledby="requestTitle">
         <div class="request-main">
-          <div class="view-kicker"><span>01</span>告诉 PartGo 你现在需要什么</div>
-          <h1 id="requestTitle">今天需要哪一件零件？</h1>
-          <p class="view-lead">输入型号、用途或直接说出来。PartGo 会先确认设备在线，再定位对应格口并开始机械动作。</p>
+          <div class="view-kicker"><span>01</span>告诉 格物 你现在需要什么</div>
+          <h1 id="requestTitle">今天需要哪一件物品？</h1>
+          <p class="view-lead">输入型号、用途或直接说出来。格物 会先确认设备在线，再定位对应格口并开始机械动作。</p>
           <div class="search-shell" id="searchShell">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>
-            <input id="partSearch" type="search" autocomplete="off" placeholder="例如：M3 螺母、螺丝、S02" aria-label="搜索零件" />
+            <input id="partSearch" type="search" autocomplete="off" placeholder="例如：M3 螺母、螺丝、S02" aria-label="搜索物品" />
             <kbd>/</kbd>
             <button class="voice-button" id="voiceButton" type="button" aria-label="语音输入"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6"/></svg><span>语音</span></button>
           </div>
           <p class="search-hint" id="searchHint">可以说：“阿仓，帮我拿 M3 螺母”</p>
-          <div class="parts-section"><div class="section-heading"><strong id="partListTitle">常用零件</strong><span>点击后先查看取料方案</span></div><div class="part-grid" id="partList" aria-live="polite"></div></div>
+          <div class="parts-section"><div class="section-heading"><strong id="partListTitle">常用物品</strong><span>点击后先查看取料方案</span></div><div class="part-grid" id="partList" aria-live="polite"></div></div>
         </div>
 
         <aside class="request-side">
-          <div class="side-heading"><span>BOM IMPORT</span><h2 id="importTitle">导入配件清单</h2></div>
+          <div class="side-heading"><span>BOM IMPORT</span><h2 id="importTitle">导入物品清单</h2></div>
           <p>识别 Excel 表格或文本文档，并与当前启用料盒自动匹配。</p>
           <div class="side-bom-workspace">
-            <div class="bom-upload-zone compact" id="bomDropzone" tabindex="0" role="button" aria-controls="bomFileInput" aria-label="选择或拖入配件清单文件">
+            <div class="bom-upload-zone compact" id="bomDropzone" tabindex="0" role="button" aria-controls="bomFileInput" aria-label="选择或拖入物品清单文件">
               <input id="bomFileInput" type="file" accept=".xlsx,.xls,.csv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,text/plain" />
               <span class="bom-upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5"/><path d="M5 14v5h14v-5"/></svg></span>
               <div><strong>拖入或选择文件</strong><small>Excel / CSV / TXT · 最大 5 MB</small></div>
@@ -131,14 +131,14 @@
 
       <section class="app-view" id="completeView" data-view="complete" aria-labelledby="completeTitle">
         <div class="complete-layout">
-          <div class="delivery-visual" aria-hidden="true"><div class="delivery-ring"><span></span><i></i></div><div class="delivered-bin"><small id="completeSlotVisual">S02</small><strong>PARTGO BIN</strong></div><div class="port-base">USER PORT / 01</div></div>
+          <div class="delivery-visual" aria-hidden="true"><div class="delivery-ring"><span></span><i></i></div><div class="delivered-bin"><small id="completeSlotVisual">S02</small><strong>格物 BIN</strong></div><div class="port-base">USER PORT / 01</div></div>
           <div class="complete-content">
             <div class="success-mark" id="completeMark"><span>✓</span>已送达</div>
             <h1 id="completeTitle">M3 螺母已在你面前</h1>
-            <p id="completeDescription">取出需要的零件后，点击下方按钮，PartGo 会把料盒送回原位。</p>
+            <p id="completeDescription">取出需要的物品后，点击下方按钮，格物 会把料盒送回原位。</p>
             <div class="complete-meta"><div><small>料盒位置</small><strong id="completeSlot">S02</strong></div><div><small>托盘状态</small><strong id="completeTray">LOADED</strong></div><div><small>任务进度</small><strong id="completeProgress">1 / 1</strong></div></div>
             <div class="next-material hidden" id="nextMaterial"><span>下一项</span><strong id="nextPart">M3 螺母</strong><small id="nextSlot">S01</small></div>
-            <label class="motion-confirm complete-confirm" id="returnClearLabel"><input id="returnAreaClear" type="checkbox" />已取用零件，手已离开取物口和运动区域</label>
+            <label class="motion-confirm complete-confirm" id="returnClearLabel"><input id="returnAreaClear" type="checkbox" />已取用物品，手已离开取物口和运动区域</label>
             <button class="primary-button complete-action" id="returnButton" type="button">归还料盒</button>
             <button class="primary-button complete-action hidden" id="confirmStoredButton" type="button">确认料盒已完整归位</button>
             <button class="secondary-button hidden" id="newTaskButton" type="button">开始新的任务</button>
@@ -147,11 +147,11 @@
       </section>
     </main>
 
-    <footer class="statusbar"><div><span class="status-led" id="footerStatusLed"></span><strong id="footerNode">PARTGO–LOCAL</strong></div><div id="statusMessage">SYSTEM READY · 正在检测控制板</div><div><span id="hostLabel">PC LOCAL</span><strong>ESP32-S3</strong></div></footer>
+    <footer class="statusbar"><div><span class="status-led" id="footerStatusLed"></span><strong id="footerNode">格物–LOCAL</strong></div><div id="statusMessage">SYSTEM READY · 正在检测控制板</div><div><span id="hostLabel">PC LOCAL</span><strong>ESP32-S3</strong></div></footer>
   </div>
 
   <dialog class="info-dialog" id="infoDialog">
-    <form method="dialog"><div class="dialog-head"><div><div class="dialog-code">HARDWARE LIBRARY</div><h2>硬件库与格口</h2></div><button class="dialog-close" value="close" aria-label="关闭">×</button></div><p>修改启用格口的零件名称和别名。保存后由本机数据库持久化。</p><div class="inventory-editor" id="inventoryEditor"></div><div class="dialog-actions"><small>仅可在设备空闲时修改</small><button class="primary-button" id="saveInventoryButton" type="button">保存并重新校验</button></div></form>
+    <form method="dialog"><div class="dialog-head"><div><div class="dialog-code">HARDWARE LIBRARY</div><h2>硬件库与格口</h2></div><button class="dialog-close" value="close" aria-label="关闭">×</button></div><p>修改启用格口的物品名称和别名。保存后由本机数据库持久化。</p><div class="inventory-editor" id="inventoryEditor"></div><div class="dialog-actions"><small>仅可在设备空闲时修改</small><button class="primary-button" id="saveInventoryButton" type="button">保存并重新校验</button></div></form>
   </dialog>
   <dialog class="info-dialog" id="referenceDialog">
     <form id="referenceForm"><div class="dialog-head"><div><div class="dialog-code">MANUAL REFERENCE</div><h2>人工确认机械原点</h2></div><button class="dialog-close" id="closeReference" type="button" aria-label="关闭">×</button></div><p>当前没有行程开关。请先停止机构，把 X 平台置于最左侧取物区、E 轴完全收回，并确认所有料盒都在已知位置。</p><label class="motion-confirm"><input id="referenceConfirmed" type="checkbox" required />X/E 已在规定原点，运动范围内无人且无障碍</label><div class="dialog-actions"><small>确认只建立坐标，不会驱动电机</small><button class="primary-button" type="submit">登记为原点</button></div></form>

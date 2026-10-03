@@ -50,7 +50,9 @@ function render(state) {
 
   const calibration = state.calibration;
   $("#xScale").textContent = calibration.x.pulses_per_mm ? `${calibration.x.pulses_per_mm.toLocaleString()} pulse/mm` : "待测量";
-  $("#eScale").textContent = calibration.e.pulses_per_mm ? `${calibration.e.pulses_per_mm.toLocaleString()} pulse/mm` : "待测量";
+  $("#eScale").textContent = calibration.e.pulses_per_mm
+    ? `${(calibration.e.pulses_per_mm / (calibration.e.scale_divisor || 1)).toLocaleString(undefined, { maximumFractionDigits: 4 })} pulse/mm`
+    : "待测量";
   displayValue($("#dockInput"), calibration.e.dock_mm);
   displayValue($("#s01Input"), calibration.slots.S01.x_mm);
   displayValue($("#s02Input"), calibration.slots.S02.x_mm);

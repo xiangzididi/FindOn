@@ -8,8 +8,8 @@
     "hook_shift_mm": 4.5
   },
   "e": {
-    "pulses_per_mm": 20,
-    "scale_divisor": 1,
+    "pulses_per_mm": 250,
+    "scale_divisor": 49,
     "driver_microsteps": 1,
     "calibrated": true,
     "dir_high_motion": "EXTEND",
